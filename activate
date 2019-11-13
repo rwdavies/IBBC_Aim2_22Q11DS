@@ -1,0 +1,11 @@
+export IBBC_MAF_FILTER=0.10 ## allele frequency required of iBBC
+export GWAS_MIN_INFO=0.90 ## minimum info score for GWASes that report them
+export R_DIR=${PROJ_DIR}/R/
+export RESULTS_DIR=${ANALYSIS_VERSION_DATE}
+export BIN_DIR=bin/
+export EXTERNAL_DIR=external/
+export IBBC_PREFIX=22Qonly_INDM2_Sex_Mind001_SNPqc
+export IBBC_PLINK=${EXTERNAL_DIR}${IBBC_PREFIX}
+export PHENO_FILE_NAME_NO_EXTENSION=iBBC_AIMIIdata_14June2018 ## from Jacob
+## file that is made, need to copy
+export PHENO_FILE_WITH_PCA_AND_PRS=${RESULTS_DIR}/${PHENO_FILE_NAME_NO_EXTENSION}.withPRS.csv
