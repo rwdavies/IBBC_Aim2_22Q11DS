@@ -666,7 +666,7 @@ get_aim2B_results <- function(phenotypes) {
     return(aim2B_results)
 }
 
-aim2B_plot_groups <- function(filename, what = "pdf", ylimAdjust = 0.2, x.intersp = 0, border = NA, plot_type = "scz") {
+aim2B_plot_groups <- function(filename, what = "pdf", ylimAdjust = 0.2, x.intersp = 0, border = NA, plot_type = "scz", add_beta = FALSE) {
     ##if (length(phenotypes) != 4) {
     ##    stop("this plotting assumes a length of 4!")
     ## }
@@ -703,13 +703,15 @@ aim2B_plot_groups <- function(filename, what = "pdf", ylimAdjust = 0.2, x.inters
                 stop("bad asumptions!")
             }
             ##return(paste0("N = ", N, "\nr2 = ", round(r2, 4), "\np = ", p))
-            return(
-                c(
-                    paste0("N = ", N),
-                    paste0("r2 = ", round(r2, 4)),
-                    paste0("p = ", p)
-                )
+            to_return <- c(
+                paste0("N = ", N),
+                paste0("r2 = ", round(r2, 4)),
+                paste0("p = ", p)
             )
+            if (add_beta) {
+                to_return <- c(to_return, paste0("beta = ", beta))
+            }
+            return(to_return)
         }
         if ((plot_type == "both") | (plot_type == "scz")) {
             main_scz <- main("scz", "PRS_PGC_2014_SCZ")

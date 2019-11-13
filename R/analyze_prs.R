@@ -19,7 +19,7 @@ aim2X_tableIQ_filename <- gsub("\\\\", "", args[8])
 
 if (1 == 1) {
     
-    R_dir <- "~/Dropbox/22Q11/R/"
+    R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/"
     results_dir <- file.path("~/IBBC/", "2018_11_28")
     pheno_file_name_no_extension <- "iBBC_AIMIIdata_14June2018"
     pheno_file_with_prs <- file.path(results_dir, paste0(pheno_file_name_no_extension, ".withPRS.csv"))
@@ -82,19 +82,20 @@ names(phenotypes) <- c("SSD", "Subthreshold psychosis", "Baseline FSIQ", "Binary
 aim2B_results <- get_aim2B_results(phenotypes)
 aim2B_plot_hist(aim2B_hist_filename)
 ##
-aim2B_plot_groups(aim2B_main_scz_filename_pdf, "pdf", plot_type = "scz")
-aim2B_plot_groups(aim2B_main_scz_filename_png, "png", plot_type = "scz")
-aim2B_plot_groups(aim2B_main_iq_filename_pdf, "pdf", plot_type = "iq")
-aim2B_plot_groups(aim2B_main_iq_filename_png, "png", plot_type = "iq")
-## now do subsets!
+add_beta <- FALSE ## set to true to get out betas to manually add to table
+aim2B_plot_groups(aim2B_main_scz_filename_pdf, "pdf", plot_type = "scz", add_beta = add_beta)
+aim2B_plot_groups(aim2B_main_scz_filename_png, "png", plot_type = "scz", add_beta = add_beta)
+aim2B_plot_groups(aim2B_main_iq_filename_pdf, "pdf", plot_type = "iq", add_beta = add_beta)
+aim2B_plot_groups(aim2B_main_iq_filename_png, "png", plot_type = "iq", add_beta = add_beta)
+## now do subsets - very similar, just slightly different names I think
 phenotypes <- c("binary_SCZ_vs_merged", "FSIQ_Z_First")
 names(phenotypes) <- c("SSD", "Baseline FSIQ")
-aim2B_plot_groups(aim2B_main_old_filename_pdf, "pdf", plot_type = "both")
-aim2B_plot_groups(aim2B_main_old_filename_png, "png", plot_type = "both")
+aim2B_plot_groups(aim2B_main_old_filename_pdf, "pdf", plot_type = "both", add_beta = add_beta)
+aim2B_plot_groups(aim2B_main_old_filename_png, "png", plot_type = "both", add_beta = add_beta)
 phenotypes <- c("binary_sub_vs_merged", "binary_VIQ_decline")
 names(phenotypes) <- c("Subthreshold psychosis", "Binary VIQ decline")
-aim2B_plot_groups(aim2B_main_new_filename_pdf, "pdf", plot_type = "both")
-aim2B_plot_groups(aim2B_main_new_filename_png, "png", plot_type = "both")
+aim2B_plot_groups(aim2B_main_new_filename_pdf, "pdf", plot_type = "both", add_beta = add_beta)
+aim2B_plot_groups(aim2B_main_new_filename_png, "png", plot_type = "both", add_beta = add_beta)
 
 
 ## alternatively, do quads of two sets of phenotypes - known and unknown
