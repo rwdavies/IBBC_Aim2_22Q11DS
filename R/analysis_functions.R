@@ -1388,7 +1388,12 @@ dev.off()
 for_jacob_plot_fraction_of_controls_and_ps_scz <- function() {
 
     ## average among groups
-pheno <- read.csv(pheno_file_with_prs)
+    pheno <- read.csv(pheno_file_with_prs)
+    external_dir <- file.path("~/IBBC/", "external")
+    clozuk_overlap <- file.path(external_dir, "List_samples_Overlapping_with_CLOZUK.txt")
+    overlap_samples <- as.character(read.table(clozuk_overlap)[, 1])
+    pheno <- pheno[-match(overlap_samples, pheno[, "IID"]), ]
+    
     phenoS2 <- make_pheno_with_ordered_group2018(pheno)
     x1 <- mean(phenoS2[phenoS2[, "group2018"] == "Case_SSD", "PRS_PGC_2014_SCZ"])
     x2 <- mean(phenoS2[phenoS2[, "group2018"] == "Control", "PRS_PGC_2014_SCZ"])

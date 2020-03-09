@@ -146,7 +146,8 @@ $(PCA_ALLSNPS_OUTLIERS):$(PCA_ALLSNPS_EIGENVEC)
 	R -f $(R_summarize_pca) \
 	--args \
 	$(PCA_ALLSNPS_EIGENVEC) \
-	$(PCA_ALLSNPS_OUTLIERS)
+	$(PCA_ALLSNPS_OUTLIERS) \
+	${EXTERNAL_DIR}/List_samples_Overlapping_with_CLOZUK.txt
 
 $(IBBC_GOOD_SNPS_PREFIX).bed:$(PLINK) $(SNPLIST_IBBC)
 	mkdir -p $(RESULTS_DIR) && \

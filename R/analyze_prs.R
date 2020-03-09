@@ -162,6 +162,9 @@ plot_percentiles_vs_prevalence()  ## plot
 source(file.path(R_dir, "mediation.R"))
 mediation()
 
+## do supplemental figure 2, fraction of controls vs ps_sz
+for_jacob_plot_fraction_of_controls_and_ps_scz()
+
 quit()
 
 ## quantitative phenotype analysis

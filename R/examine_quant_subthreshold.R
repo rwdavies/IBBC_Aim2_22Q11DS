@@ -1,14 +1,21 @@
-    ##
+##
     ## from analyze_prs.R
-    ## 
-    R_dir <- "~/Dropbox/22Q11/R/"    
+    ##
+    R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/"
     source(file.path(R_dir, "functions.R"))
 source(file.path(R_dir, "analysis_functions.R"))
     source(file.path(R_dir, "simulate_functions.R"))
     results_dir <- file.path("~/IBBC/", "2018_11_28")
     pheno_file_name_no_extension <- "iBBC_AIMIIdata_14June2018"
     pheno_file_with_prs <- file.path(results_dir, paste0(pheno_file_name_no_extension, ".withPRS.csv"))
-    pheno <- read.csv(pheno_file_with_prs)
+pheno <- read.csv(pheno_file_with_prs)
+
+## remove clozuk overlap
+external_dir <- file.path("~/IBBC/", "external")
+clozuk_overlap <- file.path(external_dir, "List_samples_Overlapping_with_CLOZUK.txt")
+overlap_samples <- as.character(read.table(clozuk_overlap)[, 1])
+pheno <- pheno[-match(overlap_samples, pheno[, "IID"]), ]
+
     groups_to_plot <- c("Case_SSD", "PutativeSubthreshold", "PutativeControl", "Control", "Unknown", "Case_AffectivePsychosis")
     phenoS2 <- make_pheno_with_ordered_group2018(pheno)
     
