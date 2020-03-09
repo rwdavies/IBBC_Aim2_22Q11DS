@@ -1,10 +1,6 @@
-library("VGAM")
-library("rmutil")
 library("parallel")
 library(gridExtra)
 library(lattice)
-library(raster)
-library(rasterVis)
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 get_and_sanitize <- function(what) {
@@ -17,7 +13,9 @@ results_dir <- get_and_sanitize("RESULTS_DIR")
 if (1 == 1) {
 
     ## R_dir <- "~/proj/22Q11/R/"; results_dir <- "/data/smew1/rdavies/22Qresults/"; nCores <- 16
-    R_dir <- "~/Dropbox/22Q11/R/";    results_dir <- file.path("~/IBBC/", "2018_11_28"); nCores <- 4
+    R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/";    results_dir <- file.path("~/IBBC/", "2018_11_28"); nCores <- 4
+    clozuk_overlap <- file.path("~/IBBC/", "external", "List_samples_Overlapping_with_CLOZUK.txt")
+    
     
 }
 

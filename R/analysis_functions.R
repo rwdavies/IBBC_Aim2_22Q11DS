@@ -699,6 +699,7 @@ aim2B_plot_groups <- function(filename, what = "pdf", ylimAdjust = 0.2, x.inters
                 (1 - x$deviance / x$null.deviance) -
                 (1 - x_noPRS$deviance / x_noPRS$null.deviance)
             r2 <- c(r2A, r2B)
+            r2_noprs <- c(x_noPRS$r.squared, (1 - x_noPRS$deviance / x_noPRS$null.deviance))
             if (length(r2) != 1) {
                 stop("bad asumptions!")
             }
@@ -710,6 +711,7 @@ aim2B_plot_groups <- function(filename, what = "pdf", ylimAdjust = 0.2, x.inters
             )
             if (add_beta) {
                 to_return <- c(to_return, paste0("beta = ", beta))
+                to_return <- c(to_return, paste0("no prs r2 = ", round(r2_noprs, 3)))
             }
             return(to_return)
         }

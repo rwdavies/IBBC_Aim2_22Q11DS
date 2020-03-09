@@ -16,11 +16,13 @@ aim2B_hist_filename <- gsub("\\\\", "", args[5])
 aim2B_main_filename <- gsub("\\\\", "", args[6])
 aim2X_tableSCZ_filename <- gsub("\\\\", "", args[7])
 aim2X_tableIQ_filename <- gsub("\\\\", "", args[8])
+clozuk_overlap <- gsub("\\\\", "", args[9])
 
-if (1 == 1) {
-    
+if (isTRUE(as.logical(Sys.getenv("MANUAL_ANALYSIS_SWITCH")))) {
+
     R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/"
     results_dir <- file.path("~/IBBC/", "2018_11_28")
+    external_dir <- file.path("~/IBBC/", "external")
     pheno_file_name_no_extension <- "iBBC_AIMIIdata_14June2018"
     pheno_file_with_prs <- file.path(results_dir, paste0(pheno_file_name_no_extension, ".withPRS.csv"))
     aim2A_hist_filename <- file.path(results_dir, "aim2A.hist.pdf")    
@@ -36,16 +38,20 @@ if (1 == 1) {
     aim2B_main_old_filename_pdf <- file.path(results_dir, "aim2B.main.old.pdf")
     aim2B_main_old_filename_png <- file.path(results_dir, "aim2B.main.old.png")
     aim2X_tableSCZ_filename <- file.path(results_dir, "aim2X.tableSCZ.csv")
-    aim2X_tableIQ_filename <- file.path(results_dir, "aim2X.tableIQ.csv")    
+    aim2X_tableIQ_filename <- file.path(results_dir, "aim2X.tableIQ.csv")
+    clozuk_overlap <- file.path(external_dir, "List_samples_Overlapping_with_CLOZUK.txt")
 
 }
 
-library("DescTools")
+## library("DescTools")
 library("VGAM")
 source(file.path(R_dir, "functions.R"))
 source(file.path(R_dir, "analysis_functions.R"))
 
 pheno <- read.csv(pheno_file_with_prs)
+## remove CLOZUK overlap
+overlap_samples <- as.character(read.table(clozuk_overlap)[, 1])
+pheno <- pheno[-match(overlap_samples, pheno[, "IID"]), ]
 pheno$binary_VIQ_decline <- pheno[, "VIQ_deltazFL"] < (-1.0)
 pheno$binary_FSIQ_decline <- pheno[, "FSIQ_deltazFL"] < (-1.0)
 ##
@@ -56,7 +62,13 @@ pheno$binary_SCZ_vs_merged[(pheno[, "group2018"] == "Control") | (pheno[, "group
 pheno$binary_sub_vs_merged <- array(NA, nrow(pheno))
 pheno$binary_sub_vs_merged[(pheno[, "group2018"] == "PutativeSubthreshold") ] <- TRUE
 pheno$binary_sub_vs_merged[(pheno[, "group2018"] == "Control") | (pheno[, "group2018"] == "PutativeControl")] <- FALSE
-##
+## make extra as well
+pheno$binary_sub_vs_definite <- array(NA, nrow(pheno))
+pheno$binary_sub_vs_definite[(pheno[, "group2018"] == "PutativeSubthreshold") ] <- TRUE
+pheno$binary_sub_vs_definite[pheno[, "group2018"] == "Control"] <- FALSE
+pheno$binary_sub_vs_definite[pheno[, "group2018"] == "PutativeControl"] <- NA
+
+## write.table(pheno[, c("IID", "X", "genomics_id", "site_id", "group2018")], file = "~/IBBC/2018_11_28/992.samples.csv", row.names = FALSE, col.names = TRUE, sep = ",", quote = FALSE)
 
 get_sample_characteristics(
     output_csv = file.path(results_dir, "sample_characteristics.csv"),
@@ -77,10 +89,40 @@ aim2A_plot_r2(aim2A_r2_filename)
 
 
 
+##
+## specifically for reviewer comment
+## 
+phenotypes <- c("binary_SCZ_vs_merged", "binary_sub_vs_definite", "FSIQ_Z_First", "binary_VIQ_decline")
+names(phenotypes) <- c("SSD", "Subthreshold psychosis vs definite", "Baseline FSIQ", "Binary VIQ decline")
+aim2B_results <- get_aim2B_results(phenotypes)
+aim2B_plot_groups(paste0(aim2B_main_scz_filename_pdf, ".reviewer1.pdf"), "pdf", plot_type = "scz", add_beta = TRUE)
+phenotypes <- c("binary_SCZ_vs_merged", "binary_sub_vs_merged", "FSIQ_Z_First", "binary_VIQ_decline")
+names(phenotypes) <- c("SSD", "Subthreshold psychosis", "Baseline FSIQ", "Binary VIQ decline")
+aim2B_results <- get_aim2B_results(phenotypes)
+aim2B_plot_groups(paste0(aim2B_main_scz_filename_pdf, ".reviewer2.pdf"), "pdf", plot_type = "scz", add_beta = TRUE)
+
+## so seems the same, likely from gaussian
+coefficients(summary(glm(formula = binary_sub_vs_merged ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5, data = pheno, family = gaussian)))["PRS_PGC_2014_SCZ", ]
+coefficients(summary(glm(formula = binary_sub_vs_definite ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5, data = pheno, family = gaussian)))["PRS_PGC_2014_SCZ", ]
+coefficients(summary(glm(formula = binary_sub_vs_merged ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5, data = pheno, family = binomial)))["PRS_PGC_2014_SCZ", ]
+coefficients(summary(glm(formula = binary_sub_vs_definite ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5, data = pheno, family = binomial)))["PRS_PGC_2014_SCZ", ]
+
+## runs into instability due to r2 difference
+## coefficients(summary(glm(data = pheno, formula1, family = binomial)))["PRS_PGC_2014_SCZ", ]
+coefficients(summary(glm(data = pheno, binary_sub_vs_merged ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5, family = binomial)))["PRS_PGC_2014_SCZ", ]
+
+
+
+
+
+##
+## normal progression here
+## 
 phenotypes <- c("binary_SCZ_vs_merged", "binary_sub_vs_merged", "FSIQ_Z_First", "binary_VIQ_decline")
 names(phenotypes) <- c("SSD", "Subthreshold psychosis", "Baseline FSIQ", "Binary VIQ decline")
 aim2B_results <- get_aim2B_results(phenotypes)
 aim2B_plot_hist(aim2B_hist_filename)
+
 ##
 add_beta <- FALSE ## set to true to get out betas to manually add to table
 aim2B_plot_groups(aim2B_main_scz_filename_pdf, "pdf", plot_type = "scz", add_beta = add_beta)
@@ -116,10 +158,9 @@ dev.off()
 
 plot_percentiles_vs_prevalence()  ## plot
 
-## AM HERE
-## can I do the above, but using OR, prevalence?
-
-## explained variance, lm? 
+## do mediation analysis
+source(file.path(R_dir, "mediation.R"))
+mediation()
 
 quit()
 

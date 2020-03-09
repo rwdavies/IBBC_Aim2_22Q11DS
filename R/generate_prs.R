@@ -1,5 +1,5 @@
-get_and_sanitize <- function(what) {
-    gsub("\\\\", "", Sys.getenv(what))
+nget_and_sanitize <- function(what) {
+   gsub("\\\\", "", Sys.getenv(what))
 }
 
 R_dir <- get_and_sanitize("R_DIR")

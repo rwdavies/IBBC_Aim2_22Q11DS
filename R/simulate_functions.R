@@ -395,6 +395,9 @@ fit_model_real_data <- function(pheno_file) {
     source(file.path(R_dir, "functions.R"))
     source(file.path(R_dir, "analysis_functions.R"))
     pheno <- read.csv(pheno_file)
+    overlap_samples <- as.character(read.table(clozuk_overlap)[, 1])
+    pheno <- pheno[-match(overlap_samples, pheno[, "IID"]), ]
+    ## 
     pheno$binary_VIQ_decline <- as.integer(pheno[, "VIQ_deltazFL"] > 0.5)
     pheno$binary_FSIQ_decline <- as.integer(pheno[, "FSIQ_deltazFL"] > 0.5)
     ## I think this is just for certain histograms
