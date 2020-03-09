@@ -536,8 +536,8 @@ get_default_model_params <- function() {
             sub.unknown = 0.46 - 0.08, ## assumed
             iq.known = 0.04, ## from davies 2018, prediction
             iq.unknown = 0.25 - 0.04, ## from davies 2018, table 1
-            iqDecline.known = 0.20, ## irrelevant
-            iqDecline.unknown = 0.40 - 0.20, ## unknown
+            iqDecline.known = 0.05, ## irrelevant
+            iqDecline.unknown = 0.25 - 0.05, ## unknown
             rb.known = 0.1, ## random binary phenotype, no genetic correlation
             rb.unknown = 0.2 ## random binary phenotype, no genetic correlation
         )
@@ -1288,24 +1288,38 @@ power_analysis_aim2A <- function(filename, n_power_reps = 100, group2018_name = 
     ## assume transitive genetic correlation
     r_g_scz_sub_range <- seq(0, 1, length.out = 21)
     power_mat <- NULL
+    power_mat_alt <- NULL
     for(r_g_scz_sub in r_g_scz_sub_range) {
         r_g["scz", "sub"] <- r_g["sub", "scz"] <- r_g_scz_sub
         ## assume transitive
         r_g["iq", "sub"] <- r_g["sub", "iq"] <- r_g_scz_sub * r_g["scz", "iq"]
         model_params$r_g <- r_g
         message(paste0(r_g_scz_sub, ", ", date()))
-        calculate_power(model_params = model_params, n_reps = n_power_reps, alpha = 0.05, group2018_name = group2018_name, prs_colname = prs_colname)
+        ## calculate_power(model_params = model_params, n_reps = n_power_reps, alpha = 0.05, group2018_name = group2018_name, prs_colname = prs_colname)
         power_mat <- rbind(
             power_mat,
             calculate_power(model_params = model_params, n_reps = n_power_reps, alpha = 0.05, group2018_name = group2018_name, prs_colname = prs_colname)
         )
-        
+        ##
+        ## alternate - set for subthreshold to scz to 0, for IQ to value
+        ##
+        r_g["scz", "sub"] <- r_g["sub", "scz"] <- 0
+        r_g["iq", "iqDecline"] <- r_g["iqDecline", "iq"] <- 0
+        r_g["sub", "iq"] <- r_g["iq", "sub"] <- r_g_scz_sub
+        model_params$r_g <- r_g
+        power_mat_alt <- rbind(
+            power_mat_alt,
+            calculate_power(model_params = model_params, n_reps = n_power_reps, alpha = 0.05, group2018_name = group2018_name, prs_colname = prs_colname)
+        )
     }
     rownames(power_mat) <- r_g_scz_sub_range
+    rownames(power_mat_alt) <- r_g_scz_sub_range
     
     ## save for now?
     save(
         power_mat,
+        power_mat_alt,
+        r_g_scz_sub_range,        
         file = paste0(filename, ".power.stuff.RData")
     )
     
@@ -1372,7 +1386,7 @@ power_plots_aim2A <- function() {
         )
         par(mfrow = c(2, 2))
         for(i_ps in 1:2) {
-            prs_colname <- c("PS_sz", "PS_iq")[i_ps]
+            prs_colname <- c("PS_SZ", "PS_IQ")[i_ps]
             if (i_ps == 1) {load(file.path(results_dir, "aim2a.power.power.stuff.RData")) } 
             if (i_ps == 2) {load(file.path(results_dir, "aim2a.iq.power.power.stuff.RData")) }
             ## what do I care about
@@ -1380,15 +1394,21 @@ power_plots_aim2A <- function() {
                 "Case_SSD_vs_Control&PutativeControl",
                 "PutativeSubthreshold_vs_Control&PutativeControl"
             )
+            names_to_plot <- c(
+                "Case_SSD_vs_Merged_Control",
+                "Subthreshold_vs_Merged_Control"
+            )
             ## load here!
-            for(test in to_plot) {
+            for(i_test in 1:length(to_plot)) {
+                test <- to_plot[i_test]
+                test_for_main <- names_to_plot[i_test]
                 plot(
                     x = r_g_scz_sub_range,
                     y = power_mat[, test],
                     xlab = "correlation (r_g)",
                     ylab = "Power",
                     type = "l",
-                    main = paste0(prs_colname, "\n", gsub("vs", "vs\n", gsub("_", " ", test))),
+                    main = paste0(prs_colname, "\n", gsub("vs", "vs\n", gsub("_", " ", test_for_main))),
                     ylim = c(0, 1)
                 )
             }
@@ -1401,7 +1421,7 @@ power_plots_aim2A <- function() {
 
 
 
-calculate_aim2AB_power <- function(model_params, nRep, alpha = 0.05, include_aim2A = FALSE) {
+calculate_aim2AB_power <- function(model_params, nRep, alpha = 0.05, include_aim2A = FALSE, group2018_name = "group2018") {
     out <- parallel::mclapply(1:nRep, mc.cores = nCores, function(iRep) {
         check <- tryCatch({
             pheno <- simulate_full(model_params = model_params, do_checks = FALSE)$pheno
@@ -1432,6 +1452,11 @@ calculate_aim2AB_power <- function(model_params, nRep, alpha = 0.05, include_aim
     })
     ##
     out2 <- t(sapply(out, I))
+    colnames(out2) <- c(
+        "quantT_on_PRS_scz",
+        "quantT_on_PRS_scz_plus_bin",
+        "oriBin_on_PRS_scz"
+    )
     ##
     power_original <- colSums(out2 < alpha) / colSums(!is.na(out2))
     ## also - first two, conditional on third
@@ -1491,7 +1516,7 @@ power_analysis_aim2AB <- function(fileprefix, n_power_reps = 100, group2018_name
         model_params$r_g <- r_g
         message(paste0(r_g_scz_sub, ", ", date()))
         ## this is not quite what I did
-        p <- calculate_aim2AB_power(model_params, n_power_reps, alpha = 0.05, include_aim2A = TRUE)
+        p <- calculate_aim2AB_power(model_params, n_power_reps, alpha = 0.05, include_aim2A = TRUE, group2018_name = "group2018")
         ##
         power_mat_original <- rbind(power_mat_original, p$power_original)
         power_mat_conditional <- rbind(power_mat_conditional, p$power_conditional)        
@@ -1506,7 +1531,7 @@ power_analysis_aim2AB <- function(fileprefix, n_power_reps = 100, group2018_name
 
     ## tell
     for(suffix in c("png", "pdf")) {
-        image_open(filename = paste0(fileprefix, ".", subpheno), height = 4, width = 8, suffix = suffix)
+        image_open(filename = paste0(fileprefix, ".", "quantSIPS"), height = 4, width = 8, suffix = suffix)
         par(mfrow = c(1, 2))
         tests_to_plot <- c(
             "quantT_on_PRS_scz",
@@ -1514,8 +1539,8 @@ power_analysis_aim2AB <- function(fileprefix, n_power_reps = 100, group2018_name
         )
         ## 
         names_tests_to_plot <- c(
-            "Quantitative SIPS vs\nPS_scz no adjustment",
-            "Quantitative SIPS vs\nPS_scz with adjustment"
+            "Quantitative SIPS vs\nPS_SZ no adjustment",
+            "Quantitative SIPS vs\nPS_SZ with adjustment"
         )
         for(i_test in 1:length(tests_to_plot)) {
             test <- tests_to_plot[i_test]
@@ -1647,24 +1672,25 @@ power_analysis_aim2B <- function(fileprefix, n_power_reps = 200, nGrids = 21, mo
         file = paste0(fileprefix, ".power.stuff.RData")
     )
 
+    load(file = paste0(fileprefix, ".power.stuff.RData")    )
     name_remapper <- function(x) {
         if (x == "p_iq_vs_PRS_scz") {
-            return("IQ ~ PRS_scz")
+            return("VIQ ~ PS_SZ")
         }
         if (x == "p_iq_vs_PRS_iq") {
-            return("IQ ~ PRS_iq")
+            return("VIQ ~ PS_IQ")
         }
         if (x == "p_iqDeclineBinary_vs_PRS_scz") {
-            return("(IQ decline 0/1) ~ PRS_scz")
+            return("(VIQ decline 0/1) ~ PS_SZ")
         }
         if (x == "p_iqDeclineBinary_vs_PRS_iq") {
-            return("(IQ decline 0/1) ~ PRS_iq")
+            return("(VIQ decline 0/1) ~ PS_IQ")
         }
         if (x == "p_iqDecline_vs_PRS_scz") {
-            return("IQ decline ~ PRS_scz")
+            return("VIQ decline ~ PS_SZ")
         }
         if (x == "p_iqDecline_vs_PRS_iq") {
-            return("IQ decline ~ PRS_iq")
+            return("VIQ decline ~ PS_IQ")
         }
     }
     
@@ -1688,8 +1714,8 @@ power_analysis_aim2B <- function(fileprefix, n_power_reps = 200, nGrids = 21, mo
             at = at,
             colorkey = colorkey,
             margin = FALSE,
-            xlab = "r_g IQ decline and IQ",
-            ylab = "r_g IQ decline and SCZ",
+            xlab = "r_g VIQ decline and IQ",
+            ylab = "r_g VIQ decline and SCZ",
             main = name_remapper(dimnames(out_mat)[[3]][i])
         )
         print(p)
@@ -1707,6 +1733,26 @@ power_analysis_aim2B <- function(fileprefix, n_power_reps = 200, nGrids = 21, mo
             ncol = 3, nrow = 2
         )
         dev.off()
+        ## just 4
+        image_open(filename = paste0(fileprefix, ".only4"), height = 8, width = 8, suffix = suffix)
+        grid.arrange(
+            plots[[5]],
+            plots[[3]],            
+            plots[[6]],
+            plots[[4]],
+            ncol = 2, nrow = 2
+        )
+        dev.off()
+        ## just other 4
+        image_open(filename = paste0(fileprefix, ".other4"), height = 8, width = 8, suffix = suffix)
+        grid.arrange(
+            plots[[3]],            
+            plots[[2]],
+            plots[[6]],
+            plots[[4]],
+            ncol = 2, nrow = 2
+        )
+        dev.off()
     }
 
     
@@ -1714,14 +1760,16 @@ power_analysis_aim2B <- function(fileprefix, n_power_reps = 200, nGrids = 21, mo
 
 
 
-make_simple_power_matrix <- function() {
+make_simple_power_matrix <- function(include_ZP5 = FALSE) {
 
+    ## out_mat
+    
     ## make output matrix
     to_out <- array(NA, c(8, 5))
     colnames(to_out) 
     ## for scz, sub
     for(i_ps in 1:2) {
-        prs_colname <- c("PS_sz", "PS_iq")[i_ps]
+        prs_colname <- c("PS_SZ", "PS_IQ")[i_ps]
         prs_colnameWithR <- c("PRS_scz", "PRS_iq")[i_ps] ## lol
         if (i_ps == 1) {load(file.path(results_dir, "aim2a.power.power.stuff.RData")) } 
         if (i_ps == 2) {load(file.path(results_dir, "aim2a.iq.power.power.stuff.RData")) }
@@ -1736,11 +1784,29 @@ make_simple_power_matrix <- function() {
         ##
         ## sub and prs
         ##
+        if (prs_colname == "PS_SZ") {
+            power_mat_local <- power_mat
+        } else {
+            power_mat_local <- power_mat_alt
+        }
+        a <- power_mat_local[, "PutativeSubthreshold_vs_Control&PutativeControl"]
+        good <- as.numeric(names(a)[!is.na(a)])
+        max_val <- max(good)
+        w <- abs(good - max_val / 2)
+        half_val <- good[max(which((w - min(w)) < 1e-06))]
+        extra <- ""
+        if (include_ZP5) {
+            extra <- paste0(power_mat_local[as.character(half_val), "PutativeSubthreshold_vs_Control&PutativeControl"], " [r_g = ", half_val, "]", ", ")
+        }
+        ## note for second case, value is wrt 
+        ## r_g["iq", "sub"] <- r_g["sub", "iq"] <- r_g_scz_sub * r_g["scz", "iq"]
+        ##
         to_out[4 * (i_ps - 1) + 2, ] <- c(
-            "sub", prs_colname, NA,
+             "sub", prs_colname, NA,
             paste0(
-                power_mat["0", "PutativeSubthreshold_vs_Control&PutativeControl"], " [r_g = 0], ",
-                power_mat["1", "PutativeSubthreshold_vs_Control&PutativeControl"], " [r_g = 1]"
+                power_mat_local["0", "PutativeSubthreshold_vs_Control&PutativeControl"], " [r_g = 0], ",
+                extra,
+                power_mat_local[as.character(max_val), "PutativeSubthreshold_vs_Control&PutativeControl"], " [r_g = ", max_val, "]"
             ),
             "XXX"
         )
@@ -1753,41 +1819,271 @@ make_simple_power_matrix <- function() {
             round(mean(out_mat[, , paste0("p_iq_vs_", prs_colnameWithR)] / c_mat, na.rm = TRUE), 2),
             "XXX"
         )
-        ## r1[X, Y, 1] is iqDecline and iq
-        ## r1[X, Y, 2] is iqDecline and sz
+        ## r_mat[X, Y, 1] is iqDecline and iq
+        ## r_mat[X, Y, 2] is iqDecline and sz
         ## take max and 0
         w1 <- abs(r_mat[, , 2]) == max(abs(r_mat[, , 2]), na.rm = TRUE)
-        w2 <- r_mat[, , 1] == 0
-        w3 <- r_mat[, , 2] == 0
-        ## no correlation
-        w <- (w3 == TRUE) & (w3 == w2)
+        w2 <- r_mat[, , 1] == 0 ## iqDecline and iq
+        w3 <- r_mat[, , 2] == 0 ## iqDecline and sz
+        ## no correlation - OK, fine
+        w <- (w3 == TRUE) & (w3 == w2) & (r_mat_exist)
         w[is.na(w)] <- FALSE
         m1 <- mean(out_mat[, , paste0("p_iqDeclineBinary_vs_", prs_colnameWithR)][w] / c_mat[w])
-        ## max correlation
-        w <- (w1 == TRUE) & (w1 == w2)
-        w[is.na(w)] <- FALSE
-        m2 <- mean(out_mat[, , paste0("p_iqDeclineBinary_vs_", prs_colnameWithR)][w] / c_mat[w])
+        ## so here, for the polygenic score
+        ## when the maximum genetic correlation exists
+        ## for that desired trait
+        ## so it is when r_mat exists
+        ## and when either w2 or w3 is 0
+        if (prs_colname == "PS_SZ") {
+            irm1 <- 1 ## the first one is the one to be 0. here
+            irm2 <- 2 ## the second one is the one to be maximized. here SZ
+        } else if (prs_colname == "PS_IQ") {
+            irm1 <- 2 
+            irm2 <- 1
+        }
+        out_full <- get_value_from_square_power_mat(out_mat, c_mat, r_mat, irm1, irm2, prs_colnameWithR, maxMult = 1)
+        if (include_ZP5) {
+            out_half <- get_value_from_square_power_mat(out_mat, c_mat, r_mat, irm1, irm2, prs_colnameWithR, maxMult = 0.5)
+            extra <- paste0(out_half$value, " [r_g = ", out_half$at, "], ")
+        } else {
+            extra <- ""
+        }
         ## 
         to_out[4 * (i_ps - 1) + 4, ] <- c(
             "viq decline", prs_colname, NA,
             paste0(
                 m1, " [r_g = 0], ",
-                m2, " [r_g = 1]"
+                extra,
+                out_full$value, " [r_g = ", out_full$at, "]"
             ),
             "XXX"
         )
         ## 
     }
-
+    file <- file.path(results_dir, "power.simple.csv")
+    if (include_ZP5) {
+        file <- file.path(results_dir, "power.simple.with.ZP5.csv")
+    }
     write.csv(
         to_out,
-        file = file.path(results_dir, "power.simple.csv"),
+        file = file,
         row.names = FALSE,
         quote = TRUE
     )
 
+}
+
+
+get_value_from_square_power_mat <- function(
+    out_mat,
+    c_mat,
+    r_mat,
+    irm1,
+    irm2,
+    prs_colnameWithR,
+    maxMult = 1
+) {
+    R <- r_mat[, , irm2]
+    R[R >= maxMult * max(R)] <- 0 ## so set everything above max to be 0
+    pA <- (r_mat[, , irm1] == 0) & (R == max(R))
+    pB <- abs(R[pA] == max(R[pA]))
+    w <- which(pA)[pB]
+    at <- abs(r_mat[, , irm2][w])
+    w[is.na(w)] <- FALSE
+    ## 
+    m2 <- mean(out_mat[, , paste0("p_iqDeclineBinary_vs_", prs_colnameWithR)][w] / c_mat[w])
+    return(list(at = at, value = m2))
+}
+
+
+reviewer_question <- function() {
+
+    ##
+    ## here we want to look at how changing assumptions affects power estimates
+    ## e.g. assumed h2_g for subthreshold psychosis is 0.46 based on scz
+    ## what if it's higher or lower
+
+    ## modification of subthreshold heritability
+    n_power_reps <- 100
+    ## for "aim2A", i.e. subthreshold SCZ, do analysis here
+    model_params$h2_g["sub.unknown"] <- model_params$h2_g["scz.unknown"]
+    new_vals <- model_params$h2_g["sub.unknown"] + seq(-2, 2) * 0.1
+    for(val in new_vals) {
+        model_params$h2_g["sub.unknown"] <- val
+        ## modified filename specifies different loading
+        filename <- file.path(results_dir, paste0("aim2a.power.val", val))
+        power_analysis_aim2A(
+            filename = filename,
+            n_power_reps = n_power_reps,
+            group2018_name = "group2018",
+            model_params = model_params,
+            prs_colname = "PRS_scz"
+        )
+    }
     
-    
+    ## surprised not complaining more about r_g = 1 but h_g different
+    ## won't be an issue in the middle, or for more moderate. will be more extreme higher up?
+
+    ## on top, plot
+    for(suffix in c("png", "pdf")) {
+        image_open(
+            filename = file.path(results_dir, paste0("aim2a.power.check")),
+            height = 8, width = 8, suffix = suffix
+        )
+        par(mfrow = c(2, 2))
+        for(i_ps in 1:1) {
+            prs_colname <- c("PS_SZ", "PS_IQ")[i_ps]
+            to_plot <- c(
+                "Case_SSD_vs_Control&PutativeControl",
+                "PutativeSubthreshold_vs_Control&PutativeControl"
+            )
+            names_to_plot <- c(
+                "Case_SSD_vs_Merged_Control",
+                "Subthreshold_vs_Merged_Control"
+            )
+            power_mats <- lapply(new_vals, function(val) {
+                filename <- file.path(results_dir, paste0("aim2a.power.val", val))
+                load(file = paste0(filename, ".power.stuff.RData"))
+                return(power_mat)
+            })
+            ## load here!
+            for(i_test in 1:length(to_plot)) {
+                test <- to_plot[i_test]
+                test_for_main <- names_to_plot[i_test]
+                plot(
+                    x = r_g_scz_sub_range,
+                    y = power_mats[[1]][, test],
+                    xlab = "correlation (r_g)",
+                    ylab = "Power",
+                    type = "l",
+                    main = paste0(prs_colname, "\n", gsub("vs", "vs\n", gsub("_", " ", test_for_main))),
+                    ylim = c(0, 1),
+                    col = cbPalette[2]                    
+                )
+                for(j in 2:length(new_vals)) {
+                    points(
+                        x = r_g_scz_sub_range,
+                        y = power_mats[[j]][, test],
+                        col = cbPalette[j + 1],
+                        type = "l"
+                    )
+                }
+                legend("topleft", col = cbPalette[2:(length(new_vals) + 1)], legend = new_vals, lwd = 2)
+            }
+        }
+        dev.off()
+    }
+    system("cd /data/smew1/rdavies/22Qresults && rsync -av *pdf florence:~/22Q/")
+    system("cd /data/smew1/rdavies/22Qresults && rsync -av *png florence:~/22Q/")
+    system("cd /data/smew1/rdavies/22Qresults && rsync -av *csv florence:~/22Q/")
+
+    ## alternative option - re-run entire program, outputting to different folder
+    ## can then look at multiple versions of the same file
     
 }
 
+
+reviewer_question_version2 <- function() {
+
+
+    stop("not quite sure right")
+    
+    ## so for viq decline vs subthreshold psychosis
+    ## might need to do separately
+    ## so subthresold vs PS_IQ
+    ## this is constrained by default assumption about r_g b/w scz and sub
+    ## where for subthresold psychosis ~ iq, could have no r_g b/w scz and sub
+    ## so find a way to redo? or think about?
+
+    
+    ## here we want to look at how assumptions about heritability of viq decline
+    ## and subthreshold psychosis affect power
+    ## in particular, I imagine, are the four below
+    ##
+    sub_vals <- c(0.33, 0.38, 0.43)
+    viq_vals <- c(0.15, 0.20, 0.25)
+    ## so here, let's look at every even result, which gives
+    ## 2nd entry = power b/w sub ~ PS_SZ
+    ## 4th entry = power b/w viqDecline ~ PS_SZ
+    ## 6th entry = power b/w sub ~ PS_IQ (least important probably)
+    ## 8th entry = power b/w viqDecline ~ PS_IQ
+    q2 <- array(NA, c(length(sub_vals), length(viq_vals)))
+    rownames(q2) <- sub_vals
+    colnames(q2) <- viq_vals
+    q4 <- q6 <- q8 <- q2
+    for(sub in sub_vals) {
+        for(viq in viq_vals) {
+            dir <- paste0(
+                "/data/smew1/rdavies/22Qresults/",
+                "results_sub_", sub, "_iqDecline_", viq
+            )
+            file <- paste0(
+                dir,
+                "/power.simple.with.ZP5.csv"
+            )
+            ##results_dir <- dir
+            ##setwd(results_dir)
+            ##make_simple_power_matrix(include_ZP5 = TRUE)
+            results <- read.csv(file)
+            ## so for example, particularly interested in upper, lower power for subthreshold psychosis vs ps_sz
+            a1 <- as.character(sub)
+            a2 <- as.character(viq)
+            q2[a1, a2] <- as.character(results[2, 4])
+            q4[a1, a2] <- as.character(results[4, 4])
+            q6[a1, a2] <- as.character(results[6, 4])
+            q8[a1, a2] <- as.character(results[8, 4])            
+        }
+    }
+    ## does not seem particularly affected, though what is 0.5 value
+    ## 2nd entry = power b/w sub ~ PS_SZ
+    q2
+    ## 4th entry = power b/w viqDecline ~ PS_SZ
+    q4
+    ## 6th entry = power b/w sub ~ PS_IQ (least important probably)
+    q6
+    ## 8th entry = power b/w viqDecline ~ PS_IQ
+    q8
+
+    ## across each, get range
+    f <- function(mat, rows = c("1", "2", "3")) {
+        mat2 <- array(NA, c(dim(mat), 3))
+        for(i in 1:nrow(mat)) {
+            for(j in 1:ncol(mat)) {
+                b <- strsplit(mat[i, j], ",", fixed = TRUE)[[1]]
+                y <- sapply(b, function(x) {
+                    as.numeric(strsplit(x, "[", fixed = TRUE)[[1]][1])
+                })
+                mat2[i, j, ] <- y
+            }
+        }
+        ## return mean, range of each one
+        f2 <- function(i) {
+            a <- c(mean(mat2[, , i]), var(c(mat2[, , i])), range(mat2[, , i]))
+            names(a) <- c("mean", "var", "lower", "upper")
+            return(a)
+        }
+        m <- rbind(f2(1), f2(2), f2(3))
+        m <- signif(m, 3)
+        rownames(m) <- rows
+        return(m)
+    }
+
+    ## manually turn into table here
+    write.csv(f(q2, rows = c(0, 0.5, 0.95)), file = "/data/smew1/rdavies/22Qresults/q2.csv", row.names = TRUE, col.names = FALSE, sep = ", ", quote = FALSE)
+    write.csv(f(q4, rows = c(0, 0.4, 0.8)), file = "/data/smew1/rdavies/22Qresults/q4.csv", row.names = TRUE, col.names = FALSE, sep = ", ", quote = FALSE)
+    write.csv(f(q6, rows = c(0, 0.5, 0.95)), file = "/data/smew1/rdavies/22Qresults/q6.csv", row.names = TRUE, col.names = FALSE, sep = ", ", quote = FALSE)
+    write.csv(f(q8, rows = c(0, 0.4, 0.8)), file = "/data/smew1/rdavies/22Qresults/q8.csv", row.names = TRUE, col.names = FALSE, sep = ", ", quote = FALSE)    
+
+    system("rsync -av /data/smew1/rdavies/22Qresults/q* florence:~/")
+    system("rsync -av /data/smew1/rdavies/22Qresults/power.simple.csv florence:~/")
+    
+    ## get normal one
+    results_dir <- "/data/smew1/rdavies/22Qresults/"
+    setwd(results_dir)
+    make_simple_power_matrix(include_ZP5 = FALSE)
+    make_simple_power_matrix(include_ZP5 = TRUE)
+    
+    read.csv("/data/smew1/rdavies/22Qresults/power.simple.csv")
+    
+
+}

@@ -12,22 +12,58 @@ results_dir <- get_and_sanitize("RESULTS_DIR")
 
 if (1 == 1) {
 
-    ## R_dir <- "~/proj/22Q11/R/"; results_dir <- "/data/smew1/rdavies/22Qresults/"; nCores <- 16
-    R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/";    results_dir <- file.path("~/IBBC/", "2018_11_28"); nCores <- 4
+    R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/"; results_dir <- "/data/smew1/rdavies/22Qresults/"; nCores <- 16
+    ## R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/";    results_dir <- file.path("~/IBBC/", "2018_11_28"); nCores <- 4
     clozuk_overlap <- file.path("~/IBBC/", "external", "List_samples_Overlapping_with_CLOZUK.txt")
     
-    
 }
+
 
 
 source(file.path(R_dir, "functions.R"))
 source(file.path(R_dir, "simulate_functions.R"))
 
-set.seed(7958) ## ## GE share volume Nov 27 2018 remove last two, 70,795,829
+
+## add alternative values of h2g for sub and iqDecline to investigate sensitivity to changes
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) > 0) {
+    ## args <- c(0.33, 0.15)
+    print(args)
+    get_default_model_params_original <- get_default_model_params
+    get_default_model_params <- function() {
+        model_params <- get_default_model_params_original()
+        model_params$h2_g["sub.unknown"] <- as.numeric(args[1])
+        model_params$h2_g["iqDecline.unknown"] <- as.numeric(args[2])
+        return(model_params)
+    }
+    prev_results_dir <- results_dir
+    results_dir <- file.path(
+        results_dir,
+        paste0(
+            "results_sub_", as.numeric(args[1]),
+            "_iqDecline_", as.numeric(args[2])
+        )
+    )
+    dir.create(results_dir)
+    file.copy(file.path(prev_results_dir, "iBBC_AIMIIdata_14June2018.withPRS.csv"), file.path(results_dir, "iBBC_AIMIIdata_14June2018.withPRS.csv"))
+    file.copy(file.path(prev_results_dir, "model_params.RData"), file.path(results_dir, "model_params.RData"))
+    a <- as.numeric(args[1]) 
+    b <- as.numeric(args[2])     
+    set.seed(100 * a + b)
+} else {
+    set.seed(7958) ## ## GE share volume Nov 27 2018 remove last two, 70,795,829
+}
+
+
+
+
 
 ## test the math here
 model_params <- get_default_model_params()
 model_params$N <- 100000 ## choose larger N for testing
+
+
+
 out <- simulate_full(model_params = model_params, do_checks = TRUE)$pheno
 
 ## fit using real data!
@@ -53,17 +89,9 @@ analyze_pheno_for_Aim2AB(pheno, subpheno = "sub", group2018_name = "group2018")
 analyze_pheno_for_Aim2AB(pheno, subpheno = "subQ", group2018_name = "group2018")
 analyze_pheno_for_Aim2B(pheno)
 
-n_power_reps <- 200
+n_power_reps <- 1000
 nGrids <- 21
 source(file.path(R_dir, "simulate_functions.R"))
-
-## aim2B
-power_analysis_aim2B(
-    fileprefix = file.path(results_dir, "aim2b.power"),
-    n_power_reps = n_power_reps,
-    nGrids = nGrids,
-    model_params = model_params
-)
 
 ## for "aim2A", i.e. subthreshold SCZ, do analysis here
 power_analysis_aim2A(
@@ -101,12 +129,17 @@ power_analysis_aim2AB(
 )
 
 
+## aim2B
+power_analysis_aim2B(
+    fileprefix = file.path(results_dir, "aim2b.power"),
+    n_power_reps = n_power_reps,
+    nGrids = nGrids,
+    model_params = model_params
+)
+
 power_plots_aim2A() ## make single aim2A plot
 make_simple_power_matrix() ## make single table with what I want
-
-
-
-
+make_simple_power_matrix(include_ZP5 = TRUE)
 
 quit()
 
