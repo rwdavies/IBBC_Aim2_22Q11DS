@@ -563,6 +563,7 @@ aim2A_plot_groups <- function(filename) {
             }
         }
     }
+    
     dev.off()
     return(NULL)
 }
@@ -573,13 +574,23 @@ aim2A_plot_r2 <- function(filename) {
     ## 1 = case_ssd vs control
     ## 5 = putative subthreshold vs control
     ## 4 = both cases vs both controls
-    comps <- c("Case_SSD_vs_Control", "PutativeSubthreshold_vs_Control", "Case_SSD&PutativeSubthreshold_vs_PutativeControl&Control")
-    fancy_comps <- c("Case_SSD vs\nControl", "PutativeSubthreshold vs\nControl", "Case_SSD &\n PutativeSubthreshold vs \nPutativeControl &\nControl")
+    comps <- c(
+        "Case_SSD_vs_Control",
+        "PutativeSubthreshold_vs_Control",
+        "Case_SSD&PutativeSubthreshold_vs_PutativeControl&Control",
+        "Case_SSD_vs_PutativeControl&Control"
+    )
+    fancy_comps <- c(
+        "Case_SSD vs\nControl",
+        "PutativeSubthreshold vs\nControl",
+        "Case_SSD &\n PutativeSubthreshold vs \nPutativeControl &\nControl",
+        "Case_SSD \n vsPutative Control & Control"        
+    )
     r2A <- array(NA, length(comps))
     r2B <- array(NA, length(comps))
     for(i in 1:length(comps)) {
         p <- comps[i]
-        if (! is.na(aim2A_results[[p]]$with_age[1])) {
+        if (!is.na(aim2A_results[[p]]$with_age[1])) {
             r2A[i] <- aim2A_results[[p]][["lrm_with_age"]][["stats"]][["R2"]]
             r2B[i] <- aim2A_results[[p]][["lrm_with_age_no_prs"]][["stats"]][["R2"]]
         } else {
@@ -594,24 +605,29 @@ aim2A_plot_r2 <- function(filename) {
         image_open(filename = filename, height = 4, width = 6, suffix = suffix, remove_suffix = TRUE)
         par(mar=c(5.1, 4.1, 1, 2.1), mgp=c(3, 1,0))
         height <- r2A - r2B
+        by <- 3
+        by2 <- 2
+        x <- seq(1, length.out = length(height), by = by)
+        x2 <- seq(1, length.out = length(height), by = by2)
         ##    names(height) <- fancy_comps
         barplot(
             height = height,
             col = cbPalette[4 + 1:length(height)],
             border = NA,
             ylab = "Marginal Nagelkerke R square",
-            space = 0.5,
-            xlim = c(0.5, 4.5),
+            space = by - 2,
+            xlim = range(x),
             ylim = c(0, 0.09)
         )
+        ## so at 1.5, 3.5
         ## add text
         text(
-            x = c(1, 2.5, 4),
+            x = x2 + 0.5,
             y = height,
             labels = round(height, 3),
             pos = 3
         )
-        mtext(text = fancy_comps, side = 1, at = c(1, 2.5, 4), padj = 1)
+        mtext(text = fancy_comps, side = 1, at = x2 + 0.5, padj = 1)
         dev.off()
     }
 }
@@ -670,6 +686,9 @@ aim2B_plot_groups <- function(filename, what = "pdf", ylimAdjust = 0.2, x.inters
     ##if (length(phenotypes) != 4) {
     ##    stop("this plotting assumes a length of 4!")
     ## }
+    if (add_beta) {
+        filename <- gsub(".pdf", ".withbeta.pdf", filename)
+    }
     if (what == "pdf") {
         pdf(filename, height = 4 * 2, width = 4 * 2)
     } else if (what == "png") {
@@ -694,12 +713,19 @@ aim2B_plot_groups <- function(filename, what = "pdf", ylimAdjust = 0.2, x.inters
             N2 <- length(x[["residuals"]])
             N <- max(N1, N2)
             ## also, get r2 difference, specifically linear phenotypes
-            r2A <- x$r.squared - x_noPRS$r.squared
-            r2B <-
+            r2_with_prs <- c(
+                x$r.squared,
+                (1 - x$deviance / x$null.deviance)
+            )
+            r2 <- c(
+                x$r.squared - x_noPRS$r.squared,
                 (1 - x$deviance / x$null.deviance) -
                 (1 - x_noPRS$deviance / x_noPRS$null.deviance)
-            r2 <- c(r2A, r2B)
-            r2_noprs <- c(x_noPRS$r.squared, (1 - x_noPRS$deviance / x_noPRS$null.deviance))
+            )
+            r2_noprs <- c(
+                x_noPRS$r.squared,
+                (1 - x_noPRS$deviance / x_noPRS$null.deviance)
+            )
             if (length(r2) != 1) {
                 stop("bad asumptions!")
             }
@@ -712,6 +738,7 @@ aim2B_plot_groups <- function(filename, what = "pdf", ylimAdjust = 0.2, x.inters
             if (add_beta) {
                 to_return <- c(to_return, paste0("beta = ", beta))
                 to_return <- c(to_return, paste0("no prs r2 = ", round(r2_noprs, 3)))
+                to_return <- c(to_return, paste0("with prs r2 = ", round(r2_with_prs, 3)))
             }
             return(to_return)
         }

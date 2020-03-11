@@ -58,6 +58,10 @@ pheno$binary_FSIQ_decline <- pheno[, "FSIQ_deltazFL"] < (-1.0)
 pheno$binary_SCZ_vs_merged <- array(NA, nrow(pheno))
 pheno$binary_SCZ_vs_merged[(pheno[, "group2018"] == "Case_SSD") ] <- TRUE
 pheno$binary_SCZ_vs_merged[(pheno[, "group2018"] == "Control") | (pheno[, "group2018"] == "PutativeControl")] <- FALSE
+## 
+pheno$binary_SCZ_vs_definite <- array(NA, nrow(pheno))
+pheno$binary_SCZ_vs_definite[(pheno[, "group2018"] == "Case_SSD") ] <- TRUE
+pheno$binary_SCZ_vs_definite[pheno[, "group2018"] == "Control"] <- FALSE
 ##
 pheno$binary_sub_vs_merged <- array(NA, nrow(pheno))
 pheno$binary_sub_vs_merged[(pheno[, "group2018"] == "PutativeSubthreshold") ] <- TRUE
@@ -87,6 +91,11 @@ aim2A_plot_hist(aim2A_hist_filename)
 aim2A_plot_groups(aim2A_main_filename)
 aim2A_plot_r2(aim2A_r2_filename)
 
+## check average levels of PRS for main text
+sapply(c("Case_SSD", "PutativeSubthreshold", "PutativeControl", "Control"), function(who) {
+    mean(phenoS2[phenoS2[, "group2018"] == who, "PRS_PGC_2018_SCZ"])
+})
+
 
 
 ##
@@ -114,6 +123,17 @@ coefficients(summary(glm(data = pheno, binary_sub_vs_merged ~ PRS_PGC_2014_SCZ +
 
 
 
+##
+## r2 and p-value for definite controls only
+##
+
+
+phenotypes <- c("binary_SCZ_vs_merged", "binary_SCZ_vs_definite", "binary_sub_vs_merged", "binary_sub_vs_definite")
+names(phenotypes) <- c("SSD vs merged", "SSD vs definite", "Sub vs merged", "Sub vs definite")
+aim2B_results <- get_aim2B_results(phenotypes)
+aim2B_plot_groups(paste0(aim2B_main_scz_filename_pdf, ".definite.pdf"), "pdf", plot_type = "scz", add_beta = TRUE)
+
+
 
 ##
 ## normal progression here
@@ -124,20 +144,21 @@ aim2B_results <- get_aim2B_results(phenotypes)
 aim2B_plot_hist(aim2B_hist_filename)
 
 ##
-add_beta <- FALSE ## set to true to get out betas to manually add to table
-aim2B_plot_groups(aim2B_main_scz_filename_pdf, "pdf", plot_type = "scz", add_beta = add_beta)
-aim2B_plot_groups(aim2B_main_scz_filename_png, "png", plot_type = "scz", add_beta = add_beta)
-aim2B_plot_groups(aim2B_main_iq_filename_pdf, "pdf", plot_type = "iq", add_beta = add_beta)
-aim2B_plot_groups(aim2B_main_iq_filename_png, "png", plot_type = "iq", add_beta = add_beta)
-## now do subsets - very similar, just slightly different names I think
-phenotypes <- c("binary_SCZ_vs_merged", "FSIQ_Z_First")
-names(phenotypes) <- c("SSD", "Baseline FSIQ")
-aim2B_plot_groups(aim2B_main_old_filename_pdf, "pdf", plot_type = "both", add_beta = add_beta)
-aim2B_plot_groups(aim2B_main_old_filename_png, "png", plot_type = "both", add_beta = add_beta)
-phenotypes <- c("binary_sub_vs_merged", "binary_VIQ_decline")
-names(phenotypes) <- c("Subthreshold psychosis", "Binary VIQ decline")
-aim2B_plot_groups(aim2B_main_new_filename_pdf, "pdf", plot_type = "both", add_beta = add_beta)
-aim2B_plot_groups(aim2B_main_new_filename_png, "png", plot_type = "both", add_beta = add_beta)
+for(add_beta in c(FALSE, TRUE)) {
+    aim2B_plot_groups(aim2B_main_scz_filename_pdf, "pdf", plot_type = "scz", add_beta = add_beta)
+    aim2B_plot_groups(aim2B_main_scz_filename_png, "png", plot_type = "scz", add_beta = add_beta)
+    aim2B_plot_groups(aim2B_main_iq_filename_pdf, "pdf", plot_type = "iq", add_beta = add_beta)
+    aim2B_plot_groups(aim2B_main_iq_filename_png, "png", plot_type = "iq", add_beta = add_beta)
+    ## now do subsets - very similar, just slightly different names I think
+    phenotypes <- c("binary_SCZ_vs_merged", "FSIQ_Z_First")
+    names(phenotypes) <- c("SSD", "Baseline FSIQ")
+    aim2B_plot_groups(aim2B_main_old_filename_pdf, "pdf", plot_type = "both", add_beta = add_beta)
+    aim2B_plot_groups(aim2B_main_old_filename_png, "png", plot_type = "both", add_beta = add_beta)
+    phenotypes <- c("binary_sub_vs_merged", "binary_VIQ_decline")
+    names(phenotypes) <- c("Subthreshold psychosis", "Binary VIQ decline")
+    aim2B_plot_groups(aim2B_main_new_filename_pdf, "pdf", plot_type = "both", add_beta = add_beta)
+    aim2B_plot_groups(aim2B_main_new_filename_png, "png", plot_type = "both", add_beta = add_beta)
+}
 
 
 ## alternatively, do quads of two sets of phenotypes - known and unknown

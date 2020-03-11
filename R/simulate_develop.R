@@ -1,4 +1,6 @@
+library("VGAM")
 library("parallel")
+library("raster")
 library(gridExtra)
 library(lattice)
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -10,10 +12,10 @@ get_and_sanitize <- function(what) {
 R_dir <- get_and_sanitize("R_DIR")
 results_dir <- get_and_sanitize("RESULTS_DIR")
 
-if (1 == 1) {
+if (isTRUE(as.logical(Sys.getenv("MANUAL_ANALYSIS_SWITCH")))) {
 
-    R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/"; results_dir <- "/data/smew1/rdavies/22Qresults/"; nCores <- 16
-    ## R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/";    results_dir <- file.path("~/IBBC/", "2018_11_28"); nCores <- 4
+    ## R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/"; results_dir <- "/data/smew1/rdavies/22Qresults/"; nCores <- 16
+    R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/";    results_dir <- file.path("~/IBBC/", "2018_11_28"); nCores <- 4
     clozuk_overlap <- file.path("~/IBBC/", "external", "List_samples_Overlapping_with_CLOZUK.txt")
     
 }
@@ -65,6 +67,13 @@ model_params$N <- 100000 ## choose larger N for testing
 
 
 out <- simulate_full(model_params = model_params, do_checks = TRUE)$pheno
+
+if (isTRUE(as.logical(Sys.getenv("MANUAL_ANALYSIS_SWITCH")))) {
+    out <- fit_model_real_data(
+        pheno_file = file.path(results_dir, "iBBC_AIMIIdata_14June2018.withPRS.csv")
+    )
+    quit()
+}
 
 ## fit using real data!
 file <- file.path(results_dir, "model_params.RData")
