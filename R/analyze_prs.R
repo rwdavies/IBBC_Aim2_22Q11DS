@@ -123,11 +123,13 @@ coefficients(summary(glm(data = pheno, binary_sub_vs_merged ~ PRS_PGC_2014_SCZ +
 
 
 
+
+
+
+
 ##
 ## r2 and p-value for definite controls only
 ##
-
-
 phenotypes <- c("binary_SCZ_vs_merged", "binary_SCZ_vs_definite", "binary_sub_vs_merged", "binary_sub_vs_definite")
 names(phenotypes) <- c("SSD vs merged", "SSD vs definite", "Sub vs merged", "Sub vs definite")
 aim2B_results <- get_aim2B_results(phenotypes)
@@ -186,7 +188,16 @@ mediation()
 ## do supplemental figure 2, fraction of controls vs ps_sz
 for_jacob_plot_fraction_of_controls_and_ps_scz()
 
-quit()
+
+## check 0.5 value, original choice
+pheno$binary_VIQ_decline <- pheno[, "VIQ_deltazFL"] < (-0.5)
+phenotypes <- c("binary_SCZ_vs_merged", "binary_sub_vs_merged", "FSIQ_Z_First", "binary_VIQ_decline")
+names(phenotypes) <- c("SSD", "Subthreshold psychosis", "Baseline FSIQ", "Binary VIQ decline")
+aim2B_results <- get_aim2B_results(phenotypes)
+aim2B_plot_groups(paste0(aim2B_main_iq_filename_pdf, ".fornumbers.pdf"), "pdf", plot_type = "scz", add_beta = TRUE)
+
+
+
 
 ## quantitative phenotype analysis
 

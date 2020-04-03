@@ -634,9 +634,7 @@ aim2A_plot_r2 <- function(filename) {
 
 
 get_aim2B_results <- function(phenotypes) {
-
     aim2B_results <- lapply(1:length(phenotypes), function(i_what) {
-
         phenotype <- phenotypes[i_what]
         print(phenotype)
         f <- function(phenotype, prs) {
@@ -656,6 +654,11 @@ get_aim2B_results <- function(phenotypes) {
             prs_iq_prediction <- stats::predict.glm(object = s2, newdata = pheno[, rownames(coefficients(summary(s2)))[-1]])
             s1_noPRS <- glm(data = pheno, formula1_noPRS, family = binomial)
             s2_noPRS <- glm(data = pheno, formula2_noPRS, family = binomial)
+            ## also - do version that has built in nag
+            lrm_prs_scz <- rms::lrm(data = pheno, formula = formula1)
+            lrm_prs_iq <- rms::lrm(data = pheno, formula = formula2)
+            lrm_scz_no_PRS <- rms::lrm(data = pheno, formula = formula1_noPRS)
+            lrm_iq_no_PRS <- rms::lrm(data = pheno, formula = formula2_noPRS)
         } else {
             s1 <- lm(data = pheno, formula1)
             s2 <- lm(data = pheno, formula2)
@@ -665,6 +668,10 @@ get_aim2B_results <- function(phenotypes) {
             ## also, fit model without PRS
             s1_noPRS <- lm(data = pheno, formula1_noPRS)
             s2_noPRS <- lm(data = pheno, formula2_noPRS)
+            lrm_prs_scz <- NA
+            lrm_prs_iq <- NA
+            lrm_scz_no_PRS <- NA
+            lrm_iq_no_PRS <- NA
         }
         return(
             list(
@@ -673,11 +680,14 @@ get_aim2B_results <- function(phenotypes) {
                 prs_scz_prediction = prs_scz_prediction,
                 prs_iq_prediction = prs_iq_prediction,
                 scz_no_PRS = summary(s1_noPRS),
-                iq_no_PRS = summary(s2_noPRS)
+                iq_no_PRS = summary(s2_noPRS),
+                lrm_prs_scz = lrm_prs_scz,
+                lrm_prs_iq = lrm_prs_iq,
+                lrm_scz_no_PRS = lrm_scz_no_PRS,
+                lrm_iq_no_PRS = lrm_iq_no_PRS
             )
         )
     })
-
     names(aim2B_results) <- phenotypes
     return(aim2B_results)
 }
@@ -706,6 +716,25 @@ aim2B_plot_groups <- function(filename, what = "pdf", ylimAdjust = 0.2, x.inters
             no_prs <- paste0(prsA, "_no_PRS")
             x <- aim2B_results[[phenotypes[i_what]]][[prs1]]
             x_noPRS <- aim2B_results[[phenotypes[i_what]]][[no_prs]]
+            if (!is.na(aim2B_results[[phenotypes[i_what]]][[paste0("lrm_", prs1)]][1])) {
+                ## this means it is binary
+                lrm_x <- aim2B_results[[phenotypes[i_what]]][[paste0("lrm_", prs1)]]
+                lrm_x_noPRS <- aim2B_results[[phenotypes[i_what]]][[paste0("lrm_", no_prs)]]
+                ## original approach
+                bin_r_squared_with_prs <- (1 - x$deviance / x$null.deviance)
+                bin_r_squared_prs_difference <-
+                    (1 - x$deviance / x$null.deviance) -
+                    (1 - x_noPRS$deviance / x_noPRS$null.deviance)
+                bin_r_squared_no_prs <- (1 - x_noPRS$deviance / x_noPRS$null.deviance)
+                ## now using Nagelkerke r2
+                bin_r_squared_with_prs <- lrm_x[["stats"]][["R2"]]
+                bin_r_squared_no_prs <- lrm_x_noPRS[["stats"]][["R2"]]
+                bin_r_squared_prs_difference <- bin_r_squared_with_prs - bin_r_squared_no_prs
+            } else {
+                bin_r_squared_with_prs <- NULL
+                bin_r_squared_prs_difference <- NULL
+                bin_r_squared_no_prs <- NULL
+            }
             beta <- formatC(coefficients(x)[prs2, "Estimate"], digits = 2)
             p <- coefficients(x)[prs2, 4] ## argh different names for p-value
             p <- formatC(p, format = "e", digits = 2)
@@ -715,19 +744,21 @@ aim2B_plot_groups <- function(filename, what = "pdf", ylimAdjust = 0.2, x.inters
             ## also, get r2 difference, specifically linear phenotypes
             r2_with_prs <- c(
                 x$r.squared,
-                (1 - x$deviance / x$null.deviance)
+                bin_r_squared_with_prs
             )
             r2 <- c(
                 x$r.squared - x_noPRS$r.squared,
-                (1 - x$deviance / x$null.deviance) -
-                (1 - x_noPRS$deviance / x_noPRS$null.deviance)
+                bin_r_squared_prs_difference
             )
             r2_noprs <- c(
                 x_noPRS$r.squared,
-                (1 - x_noPRS$deviance / x_noPRS$null.deviance)
+                bin_r_squared_no_prs
             )
             if (length(r2) != 1) {
-                stop("bad asumptions!")
+                print(prsA)
+                print(prs2)
+                print(r2)
+                stop("bad assumptions!")
             }
             ##return(paste0("N = ", N, "\nr2 = ", round(r2, 4), "\np = ", p))
             to_return <- c(

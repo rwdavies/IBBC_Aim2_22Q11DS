@@ -10,7 +10,7 @@
 set -e 
 # If removing samples (e.g. 3 clozuk samples)
 # can execute / work interactively
-OUT_DIR="/Users/robert davies/IBBC/plots_2020_03_10/"
+OUT_DIR="/Users/robert davies/IBBC/plots_2020_03_18/"
 mkdir -p "${OUT_DIR}"
 
 
@@ -89,7 +89,7 @@ rsync -av "/Users/robert davies/IBBC/2018_11_28/parameter.estimates.csv" "${OUT_
 # Supplementary Table 5 - based on Supp Table 6, 7
 # Requires running on smew, after copying over model parameters from laptop
 # Supplemental Figure 9 also on smew
-if [ 1 == 0 ]
+if [ 1 == 1 ]
 then
     # Supp tables 6, 7
     # manually specify user name
@@ -98,6 +98,7 @@ then
     rsync -av ${FROMDIR}aim2b.power.only4.pdf "${OUT_DIR}/Supplemental Figure 7.pdf"
     rsync -av ${FROMDIR}aim2ab.quantSIPS.pdf "${OUT_DIR}/Supplemental Figure 9.pdf"
     rsync -av ${FROMDIR}power.simple.csv "${OUT_DIR}/Supplemental Table 5.csv"
+    rsync -av ${FROMDIR}q*csv "${OUT_DIR}/"
 fi
 
 exit
