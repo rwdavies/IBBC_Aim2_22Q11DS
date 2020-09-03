@@ -482,9 +482,18 @@ aim2B_plot_hist <- function(filename) {
     return(NULL)
 }
 
-aim2A_plot_groups <- function(filename) {
-    pdf(filename, height = 5, width = 7)
-    par(mar=c(5.1, 4.1, 1, 2.1), mgp=c(3, 2,0))
+aim2A_plot_groups <- function(filename, type = "pdf") {
+    cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+    cbPalette <- cbPalette[c(1, 3, 2, 4)]
+    if (type == "pdf") {
+        pdf(filename, height = 4, width = 4)
+    } else {
+        filename <- gsub(".pdf", ".eps", filename)
+        ## postscript(file = filename, height = 4, width = 7)
+        cairo_ps(file = filename, onefile = FALSE, fallback_resolution = 600, height = 4, width = 4)
+    }
+    par(oma = c(0, 0, 0, 0))
+    par(mar=c(5, 4, 0, 0)) #, mgp=c(3, 2,0))
     x <- phenoS2[, "PRS_PGC_2014_SCZ"]
     ylim <- range(x)
     ylim[2] <- 0
@@ -514,7 +523,9 @@ aim2A_plot_groups <- function(filename) {
         xlab = ""
     )
     ## cols
-    axis(1, labels = names, at = 1:4)
+    namesX <- c("SSD\n", "Sub-\nthreshold\npsychosis", "Putative\ncontrol", "Definite\ncontrol")
+    axis(1, labels = c("SSD\n \n ", "Putative\ncontrol\n "), at = c(1, 3), padj = 1)
+    axis(1, labels = c("Sub-\nthreshold\npsychosis", "Definite\ncontrol\n "), at = c(2, 4), padj = 1)
     axis(2)
     for(i_group in 1:4) {
         group <- groups_to_plot[i_group]
@@ -563,7 +574,6 @@ aim2A_plot_groups <- function(filename) {
             }
         }
     }
-    
     dev.off()
     return(NULL)
 }
@@ -692,168 +702,403 @@ get_aim2B_results <- function(phenotypes) {
     return(aim2B_results)
 }
 
-aim2B_plot_groups <- function(filename, what = "pdf", ylimAdjust = 0.2, x.intersp = 0, border = NA, plot_type = "scz", add_beta = FALSE) {
-    ##if (length(phenotypes) != 4) {
-    ##    stop("this plotting assumes a length of 4!")
-    ## }
+
+
+
+aim2B_plot_groups <- function(
+    filename,
+    what = "pdf",
+    ylimAdjust = 0.2,
+    x.intersp = 0,
+    border = NA,
+    plot_type = "scz",
+    add_beta = FALSE,
+    mc = FALSE
+) {
+    f_aim2B_plot_groups_binary <- function(prs1, xlab, main, is_first_panel = TRUE, plot_type = "both", prs_label = "", pval_text = "") {
+        plot_special <- length(grep("special", plot_type)) > 0
+        if (phenotype == "binary_VIQ_decline") {
+            cbPalette <- cbPaletteOri[c(1, 8, 7)]
+        }
+        if (phenotype == "binary_sub_vs_merged") {
+            cbPalette <- cbPaletteOri[c(1, 5, 3)]
+        }
+        cols <- cbPalette[col_start + 1 + 0:1]
+        if (plot_type == "special_old") {
+            cols <- cbPaletteOri[c(5,1)]
+        }
+        xlim <- range(pheno[, prs1], na.rm = TRUE)
+        at <- c(1, 2)
+        if (plot_special) {
+            ylim <- c(0.42, 2.58 + 3)
+        } else {
+            ylim <- c(0.42, 2.58)
+        }
+        ylim[2] <- ylim[2] + diff(ylim) * ylimAdjust
+        if (mc) {
+            xlim <- c(-3.2, 3.9)
+        }
+        if (is_first_panel) {
+            par(new = FALSE)            
+            x_bump <- 0
+        } else {
+            par(new = TRUE)            
+            x_bump <- 3
+            at <- c(4, 5)
+        }
+        ##
+        local_phenotype <- pheno[, phenotype] + x_bump
+        if (plot_special) {
+            xlabL <- ""
+            ylabL <- prs_label
+        } else {
+            xlabL <- xlab
+            ylabL <- prettyPhenotype
+        }
+        boxplot(
+            pheno[, prs1] ~ local_phenotype,
+            xlab = xlabL,
+            ylab = ylabL,
+            main = main,
+            horizontal = FALSE,
+            col = 'white',
+            border = cols,
+            axes = FALSE,
+            pars = list(
+                xlim = ylim,
+                ylim = xlim,
+                outcol = "white"
+            ),
+            at = at
+        )
+        usr <- par( "usr" )
+        ## add points
+        for(i_group in 0:1) {
+            w <- pheno[, phenotype] == i_group
+            w[is.na(w)] <- FALSE
+            y <- rnorm(sum(w), mean = i_group, sd = 0.10) + 1 + x_bump
+            x <- pheno[w, prs1]
+            if (mc) {
+                a <- x
+                x <- y
+                y <- a
+            }
+            points(
+                x = x,
+                y = y,
+                col = scales::alpha(cols[i_group + 1], 0.5),
+                pch = 16
+            )
+        }
+        if (plot_type == "special" & is_first_panel == TRUE) {
+            axis(1, at = c(1, 2), labels = c("No", "Yes"))
+            axis(1, at = c(4, 5), labels = c("No", "Yes"))
+            mtext("Subthreshold\npsychosis", side = 1, at = 1.5, padj = 2)
+            mtext("VIQ decline\n ", side = 1, at = 4.5, padj = 2)
+            axis(2)
+        } else if (plot_type == "special_old" & is_first_panel == TRUE) {
+            axis(1, at = c(1, 2), labels = c("No", "Yes"))
+            mtext("SSD\n", side = 1, at = 1.5, padj = 2)
+            axis(2)
+        } else {
+            if (!mc) {
+                axis(2, at = c(1, 2), labels = c("No", "Yes"))
+                axis(1)
+            } else {
+                axis(1, at = c(1, 2), labels = c("No", "Yes"))
+                axis(2)
+            }
+        }
+        if (plot_special) {
+            ## left and right bit
+            a <- x_bump
+            y0 <- 3.4
+            y1 <- 3.6
+            ym <- mean(c(y0, y1))
+            segments(x0 = 1 + a, x1 = 1 + a, y0 = y0, y1 = y1)
+            segments(x0 = 2 + a, x1 = 2 + a, y0 = y0, y1 = y1)
+            segments(x0 = 1 + a, x1 = 2 + a, y0 = ym, y1 = ym)
+            text(labels = pval_text, x = a + 1.5, y = ym + 0.3)
+        }
+    }
+    f_aim2B_plot_groups_quantitative <- function(x, xlab, main) {
+        y <- pheno[, phenotype]
+        ylim <- range(y, na.rm = TRUE)
+        ylim[2] <- ylim[2] + diff(ylim) * ylimAdjust
+        if (mc) {
+            ylim <- c(-3, 3)
+        }
+        plot(x = x, y = y, xlab = xlab, ylab = prettyPhenotype, main = "", col = cbPalette[col_start], axes = FALSE, ylim = ylim)
+        axis(1)
+        axis(2)
+        if (add_beta) {
+            legend("topleft", main, x.intersp = x.intersp, bty = "n")
+        }
+        addTrend(x, y)
+    }
+    main_aim2B_plot_groups <- function(prsA, prs2, phenotype) {
+        prs1 <- paste0("prs_", prsA)
+        no_prs <- paste0(prsA, "_no_PRS")
+        x <- aim2B_results[[phenotype]][[prs1]]
+        x_noPRS <- aim2B_results[[phenotype]][[no_prs]]
+        if (!is.na(aim2B_results[[phenotype]][[paste0("lrm_", prs1)]][1])) {
+            ## this means it is binary
+            lrm_x <- aim2B_results[[phenotype]][[paste0("lrm_", prs1)]]
+            lrm_x_noPRS <- aim2B_results[[phenotype]][[paste0("lrm_", no_prs)]]
+            ## original approach
+            bin_r_squared_with_prs <- (1 - x$deviance / x$null.deviance)
+            bin_r_squared_prs_difference <-
+                (1 - x$deviance / x$null.deviance) -
+                (1 - x_noPRS$deviance / x_noPRS$null.deviance)
+            bin_r_squared_no_prs <- (1 - x_noPRS$deviance / x_noPRS$null.deviance)
+            ## now using Nagelkerke r2
+            bin_r_squared_with_prs <- lrm_x[["stats"]][["R2"]]
+            bin_r_squared_no_prs <- lrm_x_noPRS[["stats"]][["R2"]]
+            bin_r_squared_prs_difference <- bin_r_squared_with_prs - bin_r_squared_no_prs
+        } else {
+            bin_r_squared_with_prs <- NULL
+            bin_r_squared_prs_difference <- NULL
+            bin_r_squared_no_prs <- NULL
+        }
+        beta <- formatC(coefficients(x)[prs2, "Estimate"], digits = 2)
+        p <- coefficients(x)[prs2, 4] ## argh different names for p-value
+        p <- formatC(p, format = "e", digits = 2)
+        N1 <- length(x[["deviance.resid"]])
+        N2 <- length(x[["residuals"]])
+        N <- max(N1, N2)
+        ## also, get r2 difference, specifically linear phenotypes
+        r2_with_prs <- c(
+            x$r.squared,
+            bin_r_squared_with_prs
+        )
+        r2 <- c(
+            x$r.squared - x_noPRS$r.squared,
+            bin_r_squared_prs_difference
+        )
+        r2_noprs <- c(
+            x_noPRS$r.squared,
+            bin_r_squared_no_prs
+        )
+        if (length(r2) != 1) {
+            print(prsA)
+            print(prs2)
+            print(r2)
+            stop("bad assumptions!")
+        }
+        ##return(paste0("N = ", N, "\nr2 = ", round(r2, 4), "\np = ", p))
+        to_return <- c(
+            paste0("N = ", N),
+            paste0("r2 = ", round(r2, 4)),
+            paste0("p = ", p)
+        )
+        if (add_beta) {
+            to_return <- c(to_return, paste0("beta = ", beta))
+            to_return <- c(to_return, paste0("no prs r2 = ", round(r2_noprs, 3)))
+            to_return <- c(to_return, paste0("with prs r2 = ", round(r2_with_prs, 3)))
+        }
+        return(to_return)
+    }
+    ##
+    ## start of normal function
+    ##
+    modify_colours <- mc
+    cbPaletteOri <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
     if (add_beta) {
         filename <- gsub(".pdf", ".withbeta.pdf", filename)
+        filename <- gsub(".png", ".withbeta.png", filename)
+        filename <- gsub(".eps", ".withbeta.eps", filename)                
+    }
+    if (mc) {
+        h <- 4
+        w <- 8
+    } else {
+        h <- 7
+        w <- 7
     }
     if (what == "pdf") {
-        pdf(filename, height = 4 * 2, width = 4 * 2)
+        pdf(filename, height = h, width = w)
     } else if (what == "png") {
-        png(filename, height = 4 * 2, width = 4 * 2, units = "in", res = 300)
+        png(filename, height = h, width = w, units = "in", res = 300)
+    } else if (what == "eps") {
+        cairo_ps(file = filename, onefile = FALSE, fallback_resolution = 600, height = h, width = w)
     }
+    par(oma = c(0, 0, 0, 0))
+    par(mar=c(5,4,0,0) + 0.1)
     cbo <- 1 ## cbPalette offset, if desired
-    par(mfcol = c(2, 2)) ## assumes length(phenotypes)))
+    ##
+    ## it is easier at this point to just re-make the combined one here as "special" code
+    ##
+    if (plot_type == "special") {
+        if (!mc) {
+            par(mfcol = c(1, 2)) ## assumes length(phenotypes)))
+        } else {
+            par(mfcol = c(1, 2))
+        }
+        ## loop here is not on phenotype but on polygenic score
+        col_start <- cbo
+        ## 
+        for(i_poly in 1:2) {
+            prs <- c("PRS_PGC_2014_SCZ", "PRS_Neale_XXXX_fluid")[i_poly]
+            prs_short <- c("scz", "iq")[i_poly]
+            prs_label <- c("PS SZ", "PS IQ")[i_poly]
+            for(i_what in 1:length(phenotypes)) {
+                phenotype <- phenotypes[i_what]
+                prettyPhenotype <- names(phenotypes)[i_what]
+                ## what changes is the phenotype here
+                main <- main_aim2B_plot_groups(prs_short, prs, phenotype)
+                pval_text <- main[3]
+                is_first_panel <- c(TRUE, FALSE)[i_what]
+                if (i_what > 2) {
+                    stop("bad setup")
+                }
+                f_aim2B_plot_groups_binary(prs1 = prs, xlab = prs_label, main = "", is_first_panel = is_first_panel, plot_type = plot_type, prs_label = prs_label, pval_text = pval_text)
+                if (add_beta) {
+                    if (i_what == 1) {
+                        legend("topleft", main, bty = "n")
+                    } else {
+                        legend("topright", main, bty = "n")
+                    }
+                }
+            }
+        }
+        dev.off()
+        return(NULL)
+    }
+    ##
+    ## also for second old one do this as well
+    ##
+    if (plot_type == "special_old") {
+        ## fix colours
+        ## double check what controls are for SSD
+        ## then keep plugging away
+        if (!mc) {
+            par(mfcol = c(1, 2)) ## assumes length(phenotypes)))
+        } else {
+            par(mfcol = c(1, 2))
+        }
+        ## loop here is not on phenotype but on polygenic score
+        col_start <- cbo
+        ## 
+        for(i_poly in 1:2) {
+            prs <- c("PRS_PGC_2014_SCZ", "PRS_Neale_XXXX_fluid")[i_poly]
+            prs_short <- c("scz", "iq")[i_poly]
+            prs_label <- c("PS SZ", "PS IQ")[i_poly]
+            if (i_poly == 1) {  x_prs <- pheno[, "PRS_PGC_2014_SCZ"]  }
+            if (i_poly == 2) {  x_prs <- pheno[, "PRS_Neale_XXXX_fluid"]  }
+            ## 
+            for(i_what in 1:length(phenotypes)) {
+                ## 
+                phenotype <- phenotypes[i_what]
+                prettyPhenotype <- names(phenotypes)[i_what]
+                ## what changes is the phenotype here
+                main <- main_aim2B_plot_groups(prs_short, prs, phenotype)
+                pval_text <- main[3]
+                is_first_panel <- c(TRUE, FALSE)[i_what]
+                if (i_what > 2) {
+                    stop("bad setup")
+                }
+                if (i_what == 1) {
+                    ## the binary one
+                    f_aim2B_plot_groups_binary(prs1 = prs, xlab = prs_label, main = "", is_first_panel = is_first_panel, plot_type = plot_type, prs_label = prs_label, pval_text = pval_text)
+                } else {
+                    ## the quantitative one, heck just do here
+                    ## y-axis is not prs, x-axis is phenotype
+                    ## for consistency of plot
+                    y <- pheno[, phenotype]
+                    if (mc) {
+                        ## so in binary, first one is 1 and 2, second one is 4 and 5
+                        ## so buffer of 0.58
+                        ## so ideally run it from 4-5?
+                        xlim <- c(0.42, 6.612) ## x-axis bit              
+                        ylim <- c(-3.2, 3.9) ## prs-bit
+                    } else {
+                        stop("not written this code")
+                    }
+                    ## need to give it a range hmm, a projection
+                    x <- pheno[, phenotype]
+                    ## axis
+                    mtext("FSIQ\n", side = 1, at = 4.5, padj = 2)
+                    labels <- round(seq(range(x, na.rm = TRUE)[1], range(x, na.rm = TRUE)[2], length.out = 4), 1)
+                    axis(1, at = c(3, 4, 5, 6), labels = labels)
+                    ## OK can now do re-scaling 
+                    x <- 3 * (x - min(x, na.rm = TRUE)) / diff(range(x, na.rm = TRUE)) + 3 ## make in 3-6
+                    par(new = TRUE)
+                    plot(x = x, y = x_prs, xlab = "", ylab = "", main = "", axes = FALSE, xlim = xlim, ylim = ylim, col = cbPalette[6])
+                    ## add trend-line and p-value on plot that is it
+                    c <- coefficients(summary(lm(x_prs ~ x)))
+                    ## argh need segments
+                    m <- c[2, 1]
+                    b <- c[1, 1]
+                    segments(x0 = 3, y0 = m * 3 + b, x1 = 6, y1 = m * 6 + b)
+                    ## add p-value like before too
+                    text(labels = pval_text, x = 4.5, y = 3.5 + 0.3)                    
+                }
+                if (add_beta) {
+                    if (i_what == 1) {
+                        legend("topleft", main, bty = "n")
+                    } else {
+                        legend("topright", main, bty = "n")
+                    }
+                }
+            }
+        }
+        dev.off()
+        return(NULL)
+    }
+    ##
+    ## normal old style
+    ##
+    if (!mc) {
+        par(mfcol = c(2, 2)) ## assumes length(phenotypes)))
+    } else {
+        par(mfcol = c(1, 4))
+    }
     for(i_what in 1:length(phenotypes)) {
         phenotype <- phenotypes[i_what]
         prettyPhenotype <- names(phenotypes)[i_what]
         ## col_start <- cbo + i_what
-        col_start <- cbo
-        main <- function(prsA, prs2) {
-            prs1 <- paste0("prs_", prsA)
-            no_prs <- paste0(prsA, "_no_PRS")
-            x <- aim2B_results[[phenotypes[i_what]]][[prs1]]
-            x_noPRS <- aim2B_results[[phenotypes[i_what]]][[no_prs]]
-            if (!is.na(aim2B_results[[phenotypes[i_what]]][[paste0("lrm_", prs1)]][1])) {
-                ## this means it is binary
-                lrm_x <- aim2B_results[[phenotypes[i_what]]][[paste0("lrm_", prs1)]]
-                lrm_x_noPRS <- aim2B_results[[phenotypes[i_what]]][[paste0("lrm_", no_prs)]]
-                ## original approach
-                bin_r_squared_with_prs <- (1 - x$deviance / x$null.deviance)
-                bin_r_squared_prs_difference <-
-                    (1 - x$deviance / x$null.deviance) -
-                    (1 - x_noPRS$deviance / x_noPRS$null.deviance)
-                bin_r_squared_no_prs <- (1 - x_noPRS$deviance / x_noPRS$null.deviance)
-                ## now using Nagelkerke r2
-                bin_r_squared_with_prs <- lrm_x[["stats"]][["R2"]]
-                bin_r_squared_no_prs <- lrm_x_noPRS[["stats"]][["R2"]]
-                bin_r_squared_prs_difference <- bin_r_squared_with_prs - bin_r_squared_no_prs
-            } else {
-                bin_r_squared_with_prs <- NULL
-                bin_r_squared_prs_difference <- NULL
-                bin_r_squared_no_prs <- NULL
+        cbPalette <- cbPaletteOri
+        if (modify_colours) {
+            if (phenotype == "binary_VIQ_decline") {
+                cbPalette <- cbPaletteOri[c(1, 8, 7)]
             }
-            beta <- formatC(coefficients(x)[prs2, "Estimate"], digits = 2)
-            p <- coefficients(x)[prs2, 4] ## argh different names for p-value
-            p <- formatC(p, format = "e", digits = 2)
-            N1 <- length(x[["deviance.resid"]])
-            N2 <- length(x[["residuals"]])
-            N <- max(N1, N2)
-            ## also, get r2 difference, specifically linear phenotypes
-            r2_with_prs <- c(
-                x$r.squared,
-                bin_r_squared_with_prs
-            )
-            r2 <- c(
-                x$r.squared - x_noPRS$r.squared,
-                bin_r_squared_prs_difference
-            )
-            r2_noprs <- c(
-                x_noPRS$r.squared,
-                bin_r_squared_no_prs
-            )
-            if (length(r2) != 1) {
-                print(prsA)
-                print(prs2)
-                print(r2)
-                stop("bad assumptions!")
+            if (phenotype == "binary_sub_vs_merged") {
+                cbPalette <- cbPaletteOri[c(1, 5, 3)]
             }
-            ##return(paste0("N = ", N, "\nr2 = ", round(r2, 4), "\np = ", p))
-            to_return <- c(
-                paste0("N = ", N),
-                paste0("r2 = ", round(r2, 4)),
-                paste0("p = ", p)
-            )
-            if (add_beta) {
-                to_return <- c(to_return, paste0("beta = ", beta))
-                to_return <- c(to_return, paste0("no prs r2 = ", round(r2_noprs, 3)))
-                to_return <- c(to_return, paste0("with prs r2 = ", round(r2_with_prs, 3)))
-            }
-            return(to_return)
         }
+        col_start <- cbo
         if ((plot_type == "both") | (plot_type == "scz")) {
-            main_scz <- main("scz", "PRS_PGC_2014_SCZ")
+            main_scz <- main_aim2B_plot_groups("scz", "PRS_PGC_2014_SCZ", phenotype)
         }
         if ((plot_type == "both") | (plot_type == "iq")) {
-            main_iq <- main("iq", "PRS_Neale_XXXX_fluid")
+            main_iq <- main_aim2B_plot_groups("iq", "PRS_Neale_XXXX_fluid", phenotype)
         }
         if (length(grep("binary", phenotype)) > 0) {
-            f <- function(prs1, xlab, main) {
-                xlim <- range(pheno[, prs1], na.rm = TRUE)
-                ylim <- c(0.42, 2.58)
-                ylim[2] <- ylim[2] + diff(ylim) * ylimAdjust
-                boxplot(
-                    pheno[, prs1] ~ pheno[, phenotype],
-                    xlab = xlab,
-                    ylab = prettyPhenotype,
-                    main = main,
-                    horizontal = TRUE,
-                    col = 'white',
-                    border = cbPalette[col_start + 1 + 0:1],
-                    axes = FALSE,
-                    pars = list(
-                        xlim = ylim,
-                        ylim = xlim
-                    )
-                )
-                usr <- par( "usr" )
-                ## add points
-                for(i_group in 0:1) {
-                    w <- pheno[, phenotype] == i_group
-                    w[is.na(w)] <- FALSE
-                    y <- rnorm(sum(w), mean = i_group, sd = 0.10)
-                    points(
-                        x = pheno[w, prs1],
-                        y = 1 + y,
-                        col = scales::alpha(cbPalette[col_start + 1 + i_group], 0.5),
-                        pch = 16
-                    )
+            ##
+            ## binary phenotype
+            ##
+            if ((plot_type == "both") | (plot_type == "scz")) {
+                f_aim2B_plot_groups_binary("PRS_PGC_2014_SCZ", "PS SZ", "", plot_type = plot_type)
+                if (add_beta) {
+                    legend("topleft", main_scz, x.intersp = x.intersp, bty = "n")
                 }
-                axis(1)
-                axis(2, at = c(1, 2), labels = c("No", "Yes"))
-            }
-            if ((plot_type == "both") | (plot_type == "scz")) {
-                f("PRS_PGC_2014_SCZ", "PS SZ", "")
-                legend("topleft", main_scz, x.intersp = x.intersp, bty = "n")
             }
             if ((plot_type == "both") | (plot_type == "iq")) {
-                f("PRS_Neale_XXXX_fluid", "PS IQ", "")
-                legend("topleft", main_iq, x.intersp = x.intersp, bty = "n")
+                f_aim2B_plot_groups_binary("PRS_Neale_XXXX_fluid", "PS IQ", "", plot_type = plot_type)
+                if (add_beta) {
+                    legend("topleft", main_iq, x.intersp = x.intersp, bty = "n")
+                }
             }
-            #addText(main_iq, usr, 0.10)
         } else {
+            ##
             ## quantitative phenotype
+            ##
             if ((plot_type == "both") | (plot_type == "scz")) {
-                x <- pheno[, "PRS_PGC_2014_SCZ"]
-                y <- pheno[, phenotype]
-                ylim <- range(y, na.rm = TRUE)
-                ylim[2] <- ylim[2] + diff(ylim) * ylimAdjust
-                plot(x = x, y = y, xlab = "PS SZ", ylab = prettyPhenotype, main = "", col = cbPalette[col_start], axes = FALSE, ylim = ylim)
-                axis(1)
-                axis(2)
-                legend("topleft", main_scz, x.intersp = x.intersp, bty = "n")
-                ##            main_scz)
-                addTrend(x, y)
-                usr <- par( "usr" )
+                f_aim2B_plot_groups_quantitative(x = pheno[, "PRS_PGC_2014_SCZ"], xlab = "PS SZ", main = main_scz)
             }
             if ((plot_type == "both") | (plot_type == "iq")) {
-                ##
-                x <- pheno[, "PRS_Neale_XXXX_fluid"]
-                y <- pheno[, phenotype]
-                ylim <- range(y, na.rm = TRUE)
-                ylim[2] <- ylim[2] + diff(ylim) * ylimAdjust
-                plot(x = x, y = y, xlab = "PS IQ", ylab = prettyPhenotype, main = "", col = cbPalette[col_start], axes =FALSE, ylim = ylim)
-                axis(1)
-                axis(2)
-                addTrend(x, y)
-                legend("topleft", main_iq, x.intersp = x.intersp, bty = "n")
+                f_aim2B_plot_groups_quantitative(x = pheno[, "PRS_Neale_XXXX_fluid"], xlab = "PS IQ", main = main_iq)
             }
-            ##usr <- par( "usr" )
-            ##addText(main_iq, usr)
-            ## add simple trendline
-            ## add trendline ( WHY did I do all that. just need coefficient, right?
         }
     }
     dev.off()
@@ -1444,14 +1689,12 @@ dev.off()
 
 
 for_jacob_plot_fraction_of_controls_and_ps_scz <- function() {
-
     ## average among groups
     pheno <- read.csv(pheno_file_with_prs)
     external_dir <- file.path("~/IBBC/", "external")
     clozuk_overlap <- file.path(external_dir, "List_samples_Overlapping_with_CLOZUK.txt")
     overlap_samples <- as.character(read.table(clozuk_overlap)[, 1])
     pheno <- pheno[-match(overlap_samples, pheno[, "IID"]), ]
-    
     phenoS2 <- make_pheno_with_ordered_group2018(pheno)
     x1 <- mean(phenoS2[phenoS2[, "group2018"] == "Case_SSD", "PRS_PGC_2014_SCZ"])
     x2 <- mean(phenoS2[phenoS2[, "group2018"] == "Control", "PRS_PGC_2014_SCZ"])
@@ -1475,56 +1718,61 @@ for_jacob_plot_fraction_of_controls_and_ps_scz <- function() {
         return(xx[which.min(abs(x - vals))])
     }
     ##
-    pdf(file.path(results_dir, "cont.frac.ps_scz.pdf"), height = 6, width = 6)
-    xlim <- c(-0.1, 1.1)
-    ylim <- c(-0.3, 0.4)
-    plot(xx, vals, xlab = "Fraction of controls", type = "l", ylab = "PS_SZ", ylim = ylim, xlim = xlim, axes = FALSE)
-    ## add end bits
-    points(x = c(head(xx, 1), tail(xx, 1)), y = c(head(vals, 1), tail(vals, 1)), type = "o", cex = 2)
-    axis(1, at = c(0, 0.2, 0.4, 0.6, 0.8, 1.0), labels = c("SSD value", 0.2, 0.4, 0.6, 0.8, "Ctrl value"))
-    axis(2)
-    ##
-    ## plot where subthrehsold cases would be
-    ##text(x = 0, y = x1, "Schizophrenia\nvalue", col = "red")
-    ##text(x = 1, y = x2, "Control\nvalue", col = "red")
-    ## subthreshold value
-    add_to_plot <- function(phenotype, print_pheno, xx, vals) {
-        av_for_pheno <- mean(phenoS2[phenoS2[, "group2018"] == phenotype, "PRS_PGC_2014_SCZ"])
-        x <- xx[which.min(abs(av_for_pheno - vals))]
-        ci <- ci_f(phenoS2[phenoS2[, "group2018"] == phenotype, "PRS_PGC_2014_SCZ"])
-        arrows(x0 = x, x1 = x, y0 = ci[1], y1 = ci[2], col = "purple", code = 3, angle = 90)
+    for(i_output_type in 1:2) {
+        if (i_output_type == 1) {
+            pdf(file.path(results_dir, "cont.frac.ps_scz.pdf"), height = 6, width = 6)
+        } else {
+            cairo_ps(file = file.path(results_dir, "cont.frac.ps_scz.eps"), onefile = FALSE, fallback_resolution = 600, height = 6, width = 6)
+        }
+        xlim <- c(-0.1, 1.1)
+        ylim <- c(-0.3, 0.4)
+        plot(xx, vals, xlab = "Fraction of controls", type = "l", ylab = "PS SZ", ylim = ylim, xlim = xlim, axes = FALSE)
+        ## add end bits
+        points(x = c(head(xx, 1), tail(xx, 1)), y = c(head(vals, 1), tail(vals, 1)), type = "o", cex = 2)
+        axis(1, at = c(0, 0.2, 0.4, 0.6, 0.8, 1.0), labels = c("SSD value", 0.2, 0.4, 0.6, 0.8, "Ctrl value"))
+        axis(2)
         ##
-        spot_for_pheno <- find_match(av_for_pheno, xx, vals)
-        ## lower ci point
-        a <- round(find_match(ci[1], xx, vals), 2)
-        text(x = spot_for_pheno, y = ci[1], a, pos = 1)
-        ## upper ci point
-        a <- round(find_match(ci[2], xx, vals), 2)
-        text(x = spot_for_pheno, y = ci[2], a, pos = 3)
+        ## plot where subthrehsold cases would be
+        ##text(x = 0, y = x1, "Schizophrenia\nvalue", col = "red")
+        ##text(x = 1, y = x2, "Control\nvalue", col = "red")
+        ## subthreshold value
+        add_to_plot <- function(phenotype, print_pheno, xx, vals) {
+            av_for_pheno <- mean(phenoS2[phenoS2[, "group2018"] == phenotype, "PRS_PGC_2014_SCZ"])
+            x <- xx[which.min(abs(av_for_pheno - vals))]
+            ci <- ci_f(phenoS2[phenoS2[, "group2018"] == phenotype, "PRS_PGC_2014_SCZ"])
+            arrows(x0 = x, x1 = x, y0 = ci[1], y1 = ci[2], col = "purple", code = 3, angle = 90)
+            ##
+            spot_for_pheno <- find_match(av_for_pheno, xx, vals)
+            ## lower ci point
+            a <- round(find_match(ci[1], xx, vals), 2)
+            text(x = spot_for_pheno, y = ci[1], a, pos = 1)
+            ## upper ci point
+            a <- round(find_match(ci[2], xx, vals), 2)
+            text(x = spot_for_pheno, y = ci[2], a, pos = 3)
+            ##
+            a <- round(find_match(av_for_pheno, xx, vals), 2)
+            text(x = spot_for_pheno, y = av_for_pheno, a, pos = 2)
+            ## print_pheno <- paste0(print_pheno, "\n% = ", round(100 * spot_for_pheno, 1))
+            print_pheno <- paste0(print_pheno) ## , "\n% = ", round(100 * spot_for_pheno, 1))
+            ## move away a bit
+            wx <- diff(xlim) * 0.2
+            wy <- diff(ylim) * 0.1
+            text(x = spot_for_pheno + wx, y = av_for_pheno + wy, print_pheno, col = "red")
+            ## grey line for joining text to red dot
+            lines(x = c(spot_for_pheno, spot_for_pheno + wx), y = c(av_for_pheno, av_for_pheno + wy), col = "grey")
+            ## red dor
+            points(x = spot_for_pheno, y = av_for_pheno, col = "red", cex = 1.5, pch = 16)
+            ## grey line down to bottom
+        }
         ##
-        a <- round(find_match(av_for_pheno, xx, vals), 2)
-        text(x = spot_for_pheno, y = av_for_pheno, a, pos = 2)
-        ## print_pheno <- paste0(print_pheno, "\n% = ", round(100 * spot_for_pheno, 1))
-        print_pheno <- paste0(print_pheno) ## , "\n% = ", round(100 * spot_for_pheno, 1))
-        ## move away a bit
-        wx <- diff(xlim) * 0.2
-        wy <- diff(ylim) * 0.1
-        text(x = spot_for_pheno + wx, y = av_for_pheno + wy, print_pheno, col = "red")
-        ## grey line for joining text to red dot
-        lines(x = c(spot_for_pheno, spot_for_pheno + wx), y = c(av_for_pheno, av_for_pheno + wy), col = "grey")
-        ## red dor
-        points(x = spot_for_pheno, y = av_for_pheno, col = "red", cex = 1.5, pch = 16)
-        ## grey line down to bottom
+        add_to_plot(phenotype = "PutativeSubthreshold", print_pheno = "Subthreshold\npsychosis", xx, vals)
+        add_to_plot(phenotype = "PutativeControl", print_pheno = "Putative\nControl", xx, vals)
+        ## grey lines
+        lines(x = c(0, 0), y = c(-1 + ylim[1], head(vals, 1)), col = "grey")
+        lines(x = c(1, 1), y = c(-1 + ylim[1], tail(vals, 1)), col = "grey")
+        dev.off()
     }
     ##
-    add_to_plot(phenotype = "PutativeSubthreshold", print_pheno = "Subthreshold\npsychosis", xx, vals)
-    add_to_plot(phenotype = "PutativeControl", print_pheno = "Putative\nControl", xx, vals)
-    ## grey lines
-    lines(x = c(0, 0), y = c(-1 + ylim[1], head(vals, 1)), col = "grey")
-    lines(x = c(1, 1), y = c(-1 + ylim[1], tail(vals, 1)), col = "grey")
-    dev.off()
-    ##
-
 }
 
 

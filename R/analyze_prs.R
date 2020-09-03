@@ -87,14 +87,20 @@ phenoS2 <- make_pheno_with_ordered_group2018(pheno)
 
 aim2A_results <- get_aim2A_results()     
 
+
+source(file.path(R_dir, "analysis_functions.R"))
 aim2A_plot_hist(aim2A_hist_filename)
-aim2A_plot_groups(aim2A_main_filename)
+for(type in c("pdf", "eps")) {
+    aim2A_plot_groups(aim2A_main_filename, type = type)
+}
 aim2A_plot_r2(aim2A_r2_filename)
 
 ## check average levels of PRS for main text
 sapply(c("Case_SSD", "PutativeSubthreshold", "PutativeControl", "Control"), function(who) {
     mean(phenoS2[phenoS2[, "group2018"] == who, "PRS_PGC_2018_SCZ"])
 })
+
+
 
 
 
@@ -116,13 +122,64 @@ coefficients(summary(glm(formula = binary_sub_vs_definite ~ PRS_PGC_2014_SCZ + m
 coefficients(summary(glm(formula = binary_sub_vs_merged ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5, data = pheno, family = binomial)))["PRS_PGC_2014_SCZ", ]
 coefficients(summary(glm(formula = binary_sub_vs_definite ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5, data = pheno, family = binomial)))["PRS_PGC_2014_SCZ", ]
 
-## runs into instability due to r2 difference
-## coefficients(summary(glm(data = pheno, formula1, family = binomial)))["PRS_PGC_2014_SCZ", ]
-coefficients(summary(glm(data = pheno, binary_sub_vs_merged ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5, family = binomial)))["PRS_PGC_2014_SCZ", ]
+##
+## formulas <- c("binary_sub_vs_definite ~ PRS_PGC_2014_SCZ + sex + PC1 + PC2 + PC3 + PC4 + PC5", "binary_sub_vs_definite ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5")
+## par(mfrow = c(1, 2))
+## for(i in 1:2) {
+##     s1 <- rms::lrm(formula = as.formula(formulas[i]), data = pheno)
+##     y1 <- stats::predict(object = s1, newdata = pheno[w == TRUE & !is.na(w), ])
+##     y2 <- stats::predict(object = s1, newdata = pheno[w == FALSE & !is.na(w), ])
+##     plot(c(y1, y2), col = c(rep("blue", length(y1)), rep("red", length(y2))), main = c("Without maxassessmentage", "With maxassessmentage")[i], ylab = "y_i")
+##     if (i == 2) legend("topright", col = c("blue", "red"), c("binary subthreshold", "definite control"), lwd = 2)
+## }
+
+## check power for hypothetical example
+if (1 == 0) {
+    
+    set.seed(101)
+    f <- function(mult, n) {
+        x <- sapply(1:1000, function(iRep) {
+            x1 <- rnorm(n, 0, sd = sqrt(0.90))
+            x2 <- rnorm(n, 0, sd = sqrt(0.05))
+            p <- 1 / (1 + exp(-(mult * x1 + x2)))
+            z <- as.integer(runif(n) < p)
+            if (iRep == 1) {
+                print(rms::lrm(formula = z ~ x1 + x2, data = data.frame(z, x1, x2))$stats["R2"])
+                print(cor(mult * x1 + x2, x1) ** 2)                
+                print(cor(mult * x1 + x2, x2) ** 2)
+            }
+            b1 <- glm(formula = z ~ x1 + x2, data = data.frame(z, x1, x2), family = binomial)
+            b2 <- glm(formula = z ~ x2, data = data.frame(z, x1, x2), family = binomial)            
+            return(c(coefficients(summary(b1))[3, 4], coefficients(summary(b2))[2, 4]))
+        })
+        print(table(x[1, ] < 0.05))
+        print(table(x[2, ] < 0.05))        
+    }
+    f(1, 500) ## 55% power
+    f(6, 500) ## 22% power
+    
+}
 
 
 
+## for ania, n=720 for baseline fsiq bit
+## formula1 <- as.formula(paste0("case ~ ", prs, " + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5"))
 
+
+
+keep <- rowSums(is.na(pheno[, c("FSIQ_Z_First", "PRS_PGC_2014_SCZ", "maxassessmentage", "sex", "PC1", "PC2", "PC3", "PC4", "PC5")])) == 0
+s1 <- summary(lm(data = pheno, formula =  as.formula("FSIQ_Z_First ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5")))
+s2 <- summary(lm(data = pheno[keep, ], formula =  as.formula("FSIQ_Z_First ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5")))
+table(keep) ## 720
+write.table(pheno[keep, "IID"], file = file.path(results_dir, "ania_FSIQ_Z_First_720_2020_05_19B.csv"), row.names = FALSE, col.names =TRUE, sep = ",", quote = TRUE)
+## visual inspection the same
+keep <- rowSums(is.na(pheno[, c("binary_VIQ_decline", "PRS_PGC_2014_SCZ", "maxassessmentage", "sex", "PC1", "PC2", "PC3", "PC4", "PC5")])) == 0
+s1 <- summary(lm(data = pheno, formula =  as.formula("binary_VIQ_decline ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5")))
+s2 <- summary(lm(data = pheno[keep, ], formula =  as.formula("binary_VIQ_decline ~ PRS_PGC_2014_SCZ + maxassessmentage + sex + PC1 + PC2 + PC3 + PC4 + PC5")))
+table(keep) ## 396
+write.table(pheno[keep, "IID"], file = file.path(results_dir, "ania_binary_viq_decline_396_2020_05_19B.csv"), row.names = FALSE, col.names =TRUE, sep = ",", quote = TRUE)
+##
+write.table(pheno, file = file.path(results_dir, "ania_pheno_allB.csv"), row.names = FALSE, col.names =TRUE, sep = ",", quote = TRUE)
 
 
 
@@ -146,21 +203,37 @@ aim2B_results <- get_aim2B_results(phenotypes)
 aim2B_plot_hist(aim2B_hist_filename)
 
 ##
+source(file.path(R_dir, "analysis_functions.R"))
+mc <- TRUE
 for(add_beta in c(FALSE, TRUE)) {
-    aim2B_plot_groups(aim2B_main_scz_filename_pdf, "pdf", plot_type = "scz", add_beta = add_beta)
-    aim2B_plot_groups(aim2B_main_scz_filename_png, "png", plot_type = "scz", add_beta = add_beta)
-    aim2B_plot_groups(aim2B_main_iq_filename_pdf, "pdf", plot_type = "iq", add_beta = add_beta)
-    aim2B_plot_groups(aim2B_main_iq_filename_png, "png", plot_type = "iq", add_beta = add_beta)
+    ## what are these - what phenotypes
+    aim2B_plot_groups(aim2B_main_scz_filename_pdf, "pdf", plot_type = "scz", add_beta = add_beta, mc = mc)
+    aim2B_plot_groups(aim2B_main_scz_filename_png, "png", plot_type = "scz", add_beta = add_beta, mc = mc)
+    aim2B_plot_groups(aim2B_main_iq_filename_pdf, "pdf", plot_type = "iq", add_beta = add_beta, mc = mc)
+    aim2B_plot_groups(aim2B_main_iq_filename_png, "png", plot_type = "iq", add_beta = add_beta, mc = mc)
     ## now do subsets - very similar, just slightly different names I think
     phenotypes <- c("binary_SCZ_vs_merged", "FSIQ_Z_First")
     names(phenotypes) <- c("SSD", "Baseline FSIQ")
-    aim2B_plot_groups(aim2B_main_old_filename_pdf, "pdf", plot_type = "both", add_beta = add_beta)
-    aim2B_plot_groups(aim2B_main_old_filename_png, "png", plot_type = "both", add_beta = add_beta)
+    aim2B_plot_groups(aim2B_main_old_filename_pdf, "pdf", plot_type = "both", add_beta = add_beta, mc = mc)
+    aim2B_plot_groups(aim2B_main_old_filename_png, "png", plot_type = "both", add_beta = add_beta, mc = mc)
+    ## add for old? try it out?
+    aim2B_plot_groups(filename = gsub("old", "old.special", aim2B_main_old_filename_pdf), what = "pdf", plot_type = "special_old", add_beta = add_beta, mc = mc)
+    aim2B_plot_groups(filename = gsub("old", "old.special", aim2B_main_old_filename_png), what = "png", plot_type = "special_old", add_beta = add_beta, mc = mc)
+    aim2B_plot_groups(filename = gsub("old", "old.special", gsub("png", "eps", aim2B_main_old_filename_png)), what = "eps", plot_type = "special_old", add_beta = add_beta, mc = mc)
     phenotypes <- c("binary_sub_vs_merged", "binary_VIQ_decline")
-    names(phenotypes) <- c("Subthreshold psychosis", "Binary VIQ decline")
-    aim2B_plot_groups(aim2B_main_new_filename_pdf, "pdf", plot_type = "both", add_beta = add_beta)
-    aim2B_plot_groups(aim2B_main_new_filename_png, "png", plot_type = "both", add_beta = add_beta)
+    names(phenotypes) <- c("Subthreshold psychosis", "VIQ decline")
+    aim2B_plot_groups(aim2B_main_new_filename_pdf, "pdf", plot_type = "both", add_beta = add_beta, mc = mc)
+    aim2B_plot_groups(aim2B_main_new_filename_png, "png", plot_type = "both", add_beta = add_beta, mc = mc)
+    ## do both but do in combined way
+    aim2B_plot_groups(filename = gsub("new", "new.special", aim2B_main_new_filename_pdf), what = "pdf", plot_type = "special", add_beta = add_beta, mc = mc)
+    aim2B_plot_groups(filename = gsub("new", "new.special", aim2B_main_new_filename_png), what = "png", plot_type = "special", add_beta = add_beta, mc = mc)
+    aim2B_plot_groups(filename = gsub("new", "new.special", gsub("png", "eps", aim2B_main_new_filename_png)), what = "eps", plot_type = "special", add_beta = add_beta, mc = mc)
 }
+
+
+
+
+add_beta <- FALSE; mc <- TRUE;    aim2B_plot_groups(aim2B_main_new_filename_pdf, "pdf", plot_type = "both", add_beta = add_beta, mc = mc)
 
 
 ## alternatively, do quads of two sets of phenotypes - known and unknown
@@ -172,11 +245,19 @@ source(file.path(R_dir, "analysis_functions.R"))
 look_at_scz_quantile(aim2X_tableSCZ_filename, output_plot = TRUE)
 look_at_iq_quantile(aim2X_tableIQ_filename, output_plot = TRUE)
 
-pdf(file.path(results_dir, "cutoffPSile_both.pdf"), height = 5, width = 10)
-par(mfrow = c(1, 2))
-look_at_scz_quantile(aim2X_tableSCZ_filename, output_plot = FALSE)
-look_at_iq_quantile(aim2X_tableIQ_filename, output_plot = FALSE)
-dev.off()
+for(type in c("pdf", "eps")) {
+    filename <- file.path(results_dir, "cutoffPSile_both.pdf")
+    if (type == "pdf") {
+        pdf(filename, height = 4, width = 8)
+    } else {
+        filename <- gsub(".pdf", ".eps", filename)        
+        cairo_ps(file = filename, onefile = FALSE, fallback_resolution = 600, height = 4, width = 8)
+    }
+    par(mfrow = c(1, 2))
+    look_at_scz_quantile(aim2X_tableSCZ_filename, output_plot = FALSE)
+    look_at_iq_quantile(aim2X_tableIQ_filename, output_plot = FALSE)
+    dev.off()
+}
 
 
 plot_percentiles_vs_prevalence()  ## plot
@@ -267,12 +348,12 @@ test_ipw <- function(pheno, age_var = "maxassessmentage", prs_var = "PRS_PGC_201
     ## add linear trendline
 }
 
-png("~/temp.png", height = 5, width = 15, res = 300, units = "in")
-par(mfrow = c(1, 3))
-sigmoid()
-test_ipw(pheno, "age", "full_scz") ## N = 150K, simulated
-test_ipw(phenoS2, "maxassessmentage", "PRS_PGC_2014_SCZ")
-dev.off()
+## png("~/temp.png", height = 5, width = 15, res = 300, units = "in")
+## par(mfrow = c(1, 3))
+## sigmoid()
+## test_ipw(pheno, "age", "full_scz") ## N = 150K, simulated
+## test_ipw(phenoS2, "maxassessmentage", "PRS_PGC_2014_SCZ")
+## dev.off()
 
 
 quit()

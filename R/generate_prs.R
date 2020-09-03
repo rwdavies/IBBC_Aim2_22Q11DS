@@ -19,7 +19,7 @@ ibbc_analysis_prefix <- gsub("\\\\", "", args[5])
 if (1 == 0) {
 
     setwd("~/IBBC/")
-    R_dir <- "~/Dropbox/22Q11/R/"
+    R_dir <- "~/proj/IBBC_Aim2_22Q11DS/R/"
     external_dir <- "external/"
     iBBC <- "external/22Qonly_INDM2_Sex_Mind001_SNPqc"
     ibbc_freq_file <- "2018_06_25/22Qonly_INDM2_Sex_Mind001_SNPqc.frqx"
