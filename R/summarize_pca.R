@@ -19,6 +19,10 @@ if (isTRUE(as.logical(Sys.getenv("MANUAL_ANALYSIS_SWITCH")))) {
     pca_outliers <- "~/IBBC/2018_11_28/pca.allsnps.outliers"
     clozuk_overlap <- file.path(external_dir, "List_samples_Overlapping_with_CLOZUK.txt")    
 
+} else {
+
+    clozuk_overlap <- NULL
+
 }
 
 eigenval_file <- gsub("eigenvec", "eigenval", eigenvec_file)
@@ -44,9 +48,11 @@ pheno$site_id_pch <- pchPaletteR[match(pheno[, "site_id"], unique(pheno[, "site_
 ##
 ## do removal now
 ##
-overlap_samples <- as.character(read.table(clozuk_overlap)[, 1])
-to_remove <- sapply(overlap_samples, function(x) grep(x, pheno[, "affy_id_1"]))
-pheno <- pheno[-to_remove, ]
+if (!is.null(clozuk_overlap)) {
+    overlap_samples <- as.character(read.table(clozuk_overlap)[, 1])
+    to_remove <- sapply(overlap_samples, function(x) grep(x, pheno[, "affy_id_1"]))
+    pheno <- pheno[-to_remove, ]
+}
 
 
 

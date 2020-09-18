@@ -727,6 +727,15 @@ aim2B_plot_groups <- function(
         if (plot_type == "special_old") {
             cols <- cbPaletteOri[c(5,1)]
         }
+        if (phenotype == "binary_VIQ_decline") {
+            ## jacob request - make this darker
+            cols[2] <- "black"
+            ## 
+            darker.col <- function(color, how.much = 30){
+                colorRampPalette(c(color, "black"))(100)[how.much]
+            }
+            cols[2] <- darker.col("#D55E00")
+        }
         xlim <- range(pheno[, prs1], na.rm = TRUE)
         at <- c(1, 2)
         if (plot_special) {

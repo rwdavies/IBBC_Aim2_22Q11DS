@@ -1,4 +1,4 @@
-nget_and_sanitize <- function(what) {
+get_and_sanitize <- function(what) {
    gsub("\\\\", "", Sys.getenv(what))
 }
 
