@@ -58,13 +58,13 @@ make_prevalence_focused_plot <- function(
         x <- c(x, 50, 100 - x[length(x):1]) / 100
         at_x <- log(50, 2) + -4:4
         is_log2 <- TRUE
+        xlim <- range(at_x)
     } else {
         at_x <- x ## hope this is OK!
         is_log2 <- FALSE
+        xlim <- c(0, 1)
     }
-
     ##
-    xlim <- range(at_x)
     ylim <- c(0, 1.0)
     plot(x = 0, y = 0, xlim = xlim, ylim = ylim, axes = FALSE, col = "white", xlab = "PSile value", ylab = "PPV", main = paste0("Prevalence = ", pop_prev))
     axis(1, labels = FALSE, tick = TRUE, at = at_x)
@@ -109,16 +109,30 @@ make_prevalence_focused_plot <- function(
 }
 
 
+
+
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-pdf("~/Downloads/for_jacob.pdf", height = 12, width = 8)
-par(mfrow = c(3, 2))
-pop_prevs <- c(0.02, 0.05, 0.10, 0.25, 0.40, 0.60)
-for(i_pop_prev in 1:length(pop_prevs)) {
-    make_prevalence_focused_plot(
-        pop_prev = pop_prevs[i_pop_prev],
-        col = cbPalette[i_pop_prev]
-    )
+
+for(i_plot in 1:2) {
+    if (i_plot == 1) {
+        ## automatic x-axis, factor of two
+        pdf("~/Downloads/for_jacob.yes2.pdf", height = 12, width = 8)
+        x <- NA
+    } else if (i_plot == 2) {
+        ## manual x-axis, more human readable, not factor of two
+        pdf("~/Downloads/for_jacob.no2.pdf", height = 12, width = 8)
+        x <- c(0.10, 0.25, 0.50, 0.75, 0.90)
+    }
+    par(mfrow = c(3, 2))
+    pop_prevs <- c(0.02, 0.05, 0.10, 0.25, 0.40, 0.60)
+    for(i_pop_prev in 1:length(pop_prevs)) {
+        make_prevalence_focused_plot(
+            pop_prev = pop_prevs[i_pop_prev],
+            col = cbPalette[i_pop_prev],
+            x = x
+        )
+    }
+    dev.off()
 }
-dev.off()
 
 
